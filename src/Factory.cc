@@ -7,6 +7,7 @@
 #include "Cache.hh"
 #include "Factory.hh"
 #include "Prefetch.hh"
+#include "Decision.hh"
 
 using namespace XrdFileCache;
 
@@ -88,6 +89,12 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
             retval = false;
             break;
         }
+        if ((strncmp(var, "filecache.", 4) == 0) && (!ConfigXeq(var+4, Config)))
+        {
+            Config.Echo();
+            retval = false;
+            break;
+        }
     }
 
     if ((retc = Config.LastError()))
@@ -124,6 +131,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
 {
     TS_Xeq("osslib",        xolib);
+    TS_Xeq("decisionlib" ,  xdlib);
     return true;
 }
 
@@ -131,12 +139,13 @@ bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
 
    Purpose:  To parse the directive: osslib <path> [<parms>]
 
-             <path>    the path of the oss library to be used.
-             <parms>   optional parms to be passed
+             <path>  the path of the oss library to be used.
+             <parms> optional parameters to be passed.
 
-  Output: 0 upon success or !0 upon failure.
+  Output: true upon success or false upon failure.
 */
-bool Factory::xolib(XrdOucStream &Config)
+bool
+Factory::xolib(XrdOucStream &Config)
 {
     char *val, parms[2048];
     int pl;
@@ -160,7 +169,32 @@ bool Factory::xolib(XrdOucStream &Config)
     return true;
 }
 
-bool Factory::ConfigParameters(const char * parameters)
+/* Function: xdlib
+
+   Purpose:  To parse the directive: decisionlib <path> [<parms>]
+
+             <path>  the path of the decision library to be used.
+             <parms> optional parameters to be passed.
+
+   Output: true upon success or false upon failure.
+*/
+bool
+Factory::xdlib(XrdOucStream &Config)
+{
+    char *val; //, parms[2048];
+    //int len;
+
+    if (!(val = Config.GetWord()) || !val[0])
+    {
+        m_log.Emsg("Config", "decisionlib not specified");
+        return false;
+    }
+
+    return false; // TODO: implement
+}
+
+bool
+Factory::ConfigParameters(const char * parameters)
 {
     if (!parameters || (!(*parameters)))
     {
@@ -201,6 +235,11 @@ PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io)
 {
     std::string filename = io.Path();
+    if (!Decide(filename))
+    {
+        PrefetchPtr result;
+        return result;
+    }
     XrdOucLock monitor(&m_factory_mutex);
     PrefetchWeakPtrMap::const_iterator it = m_prefetch_map.find(filename);
 
@@ -219,5 +258,19 @@ Factory::GetPrefetch(XrdOucCacheIO & io)
         return result;
     }
     return result;
+}
+
+bool
+Factory::Decide(std::string &filename)
+{
+    std::vector<Decision>::const_iterator it;
+    for (it = m_decisionpoints.begin(); it != m_decisionpoints.end(); ++it)
+    {
+        if (!it->Decide(filename, *m_output_fs))
+        {
+            return false;
+        }
+    }
+    return true;
 }
 

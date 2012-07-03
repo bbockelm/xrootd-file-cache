@@ -14,6 +14,7 @@ typedef std::tr1::unordered_map<std::string, PrefetchWeakPtr> PrefetchWeakPtrMap
 class IO;
 class Factory;
 class Cache;
+class Decision;
 
 }
 
