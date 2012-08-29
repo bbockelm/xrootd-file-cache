@@ -13,6 +13,8 @@ using namespace XrdFileCache;
 
 #define TS_Xeq(x,m)    if (!strcmp(x,var)) return m(Config);
 
+extern XrdOss *XrdOssGetSS(XrdSysLogger *, const char *, const char *);
+
 Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
 
@@ -115,7 +117,6 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 
     if (retval)
     {
-        extern XrdOss *XrdOssGetSS(XrdSysLogger *, const char *, const char *);
         XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str());
         if (!output_fs)
         {
