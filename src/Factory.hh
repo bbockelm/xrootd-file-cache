@@ -69,7 +69,7 @@ private:
     std::string m_username;
     PrefetchWeakPtrMap m_prefetch_map;
     XrdOss *m_output_fs;
-    std::vector<Decision> m_decisionpoints;
+    std::vector<Decision*> m_decisionpoints;
 
 };
 

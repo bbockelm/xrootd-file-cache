@@ -3,6 +3,8 @@
 #include "XrdOuc/XrdOucEnv.hh"
 #include "XrdOuc/XrdOucStream.hh"
 #include "XrdOss/XrdOssApi.hh"
+#include "XrdSys/XrdSysPlugin.hh"
+#include "XrdVersion.hh"
 
 #include "Cache.hh"
 #include "Factory.hh"
@@ -13,7 +15,41 @@ using namespace XrdFileCache;
 
 #define TS_Xeq(x,m)    if (!strcmp(x,var)) return m(Config);
 
-extern XrdOss *XrdOssGetSS(XrdSysLogger *, const char *, const char *);
+// Copy/paste from XrdOss/XrdOssApi.cc.  Unfortunately, this function
+// is not part of the stable API for extension writers, necessitating
+// the copy/paste.
+//
+XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
+                    const char   *OssLib, const char *OssParms)
+{
+   static XrdOssSys   myOssSys;
+   extern XrdSysError OssEroute;
+   XrdSysPlugin    *myLib;
+   XrdOss          *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
+
+// If no library has been specified, return the default object
+//
+   if (!OssLib) {if (myOssSys.Init(Logger, config_fn)) return 0;
+                    else return (XrdOss *)&myOssSys;
+                }
+
+// Create a plugin object
+//
+   OssEroute.logger(Logger);
+   if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
+                                  myOssSys.myVersion))) return 0;
+
+// Now get the entry point of the object creator
+//
+   ep = (XrdOss *(*)(XrdOss *, XrdSysLogger *, const char *, const char *))
+                    (myLib->getPlugin("XrdOssGetStorageSystem"));
+   if (!ep) return 0;
+
+// Get the Object now
+//
+   myLib->Persist(); delete myLib;
+   return ep((XrdOss *)&myOssSys, Logger, config_fn, OssParms);
+}
 
 Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
@@ -58,6 +94,7 @@ Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
+
     m_log.logger(logger);
     m_log.Emsg("Config", "Configuring a file cache.");
 
@@ -117,7 +154,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 
     if (retval)
     {
-        XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str());
+        XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str(), NULL);
         if (!output_fs)
         {
             m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
@@ -182,16 +219,28 @@ Factory::xolib(XrdOucStream &Config)
 bool
 Factory::xdlib(XrdOucStream &Config)
 {
-    char *val; //, parms[2048];
+    const char *val; //, parms[2048];
     //int len;
 
     if (!(val = Config.GetWord()) || !val[0])
     {
-        m_log.Emsg("Config", "decisionlib not specified");
-        return false;
+        m_log.Emsg("Config", "decisionlib not specified; always caching files");
+        val = "XrdFileCacheAllowAlways";
     }
 
-    return false; // TODO: implement
+    XrdSysPlugin myLib(&m_log, val, "decisionlib", NULL);
+    Decision *(*ep)(XrdSysError&);
+    ep = (Decision *(*)(XrdSysError&))myLib.getPlugin("XrdFileCacheGetDecision");
+    if (!ep) return false;
+
+    Decision * d = ep(m_log);
+    if (!d)
+    {
+       m_log.Emsg("Config", "decisionlib was not able to create a decision object");
+       return false;
+    }
+    m_decisionpoints.push_back(d);
+    return true;
 }
 
 bool
@@ -264,10 +313,12 @@ Factory::GetPrefetch(XrdOucCacheIO & io)
 bool
 Factory::Decide(std::string &filename)
 {
-    std::vector<Decision>::const_iterator it;
+    std::vector<Decision*>::const_iterator it;
     for (it = m_decisionpoints.begin(); it != m_decisionpoints.end(); ++it)
     {
-        if (!it->Decide(filename, *m_output_fs))
+        Decision *d = *it;
+        if (!d) continue;
+        if (!d->Decide(filename, *m_output_fs))
         {
             return false;
         }
