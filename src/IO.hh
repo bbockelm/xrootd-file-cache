@@ -35,6 +35,8 @@ public:
 
     int Read (char  *Buffer, long long  Offset, int  Length);
 
+    virtual ssize_t ReadV (const XrdSfsReadV *readV, size_t n);
+
     int Sync() {return 0;}
 
     int Trunc(long long Offset) { errno = ENOTSUP; return -1; }
