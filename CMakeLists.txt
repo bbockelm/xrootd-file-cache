@@ -14,6 +14,19 @@ if( CMAKE_COMPILER_IS_GNUCC )
   set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror" )
 endif()
 
+INCLUDE (CheckCXXSourceCompiles)
+check_cxx_source_compiles("
+#include <XrdOuc/XrdOucCache.hh>
+int main() {
+    XrdSfsReadV readV;
+    return 0;
+}
+" HAVE_READV)
+
+if (HAVE_READV)
+  add_definitions(-DHAVE_READV)
+endif()
+
 include_directories ("${PROJECT_SOURCE_DIR}")
 add_subdirectory( src )
 

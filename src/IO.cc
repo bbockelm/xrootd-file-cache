@@ -49,6 +49,7 @@ int IO::Read (char *buff, long long off, int size)
 /*
  * Perform a readv from the cache
  */
+#if defined(HAVE_READV)
 ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
 {
     ssize_t bytes_read = 0;
@@ -93,4 +94,5 @@ ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
     }
     return bytes_read;
 }
+#endif
 
