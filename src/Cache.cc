@@ -1,5 +1,5 @@
 
-#include "XrdOuc/XrdOucLock.hh"
+#include "XrdSys/XrdSysPthread.hh"
 #include "XrdOss/XrdOssApi.hh"
 
 #include "IO.hh"
@@ -30,7 +30,7 @@ Cache::Cache(XrdOucCacheStats & stats, XrdSysError & log)
 XrdOucCacheIO *
 Cache::Attach(XrdOucCacheIO *io, int Options)
 {
-    XrdOucLock lock(&m_io_mutex);
+    XrdSysMutexHelper lock(&m_io_mutex);
     m_attached ++;
     if (io)
     {
@@ -40,7 +40,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
         pthread_t tid;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(prefetch.get()), 0, "XrdFileCache Prefetcher");
 
-        return new IO(*io, m_stats, *this, prefetch);
+        return new IO(*io, m_stats, *this, prefetch, m_log);
     }
     else
     {
@@ -51,14 +51,14 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
 int 
 Cache::isAttached()
 {
-    XrdOucLock lock(&m_io_mutex);
+    XrdSysMutexHelper lock(&m_io_mutex);
     return m_attached;
 }
 
 void
 Cache::Detach(XrdOucCacheIO* io)
 {
-    XrdOucLock lock(&m_io_mutex);
+    XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
     delete io;
 }

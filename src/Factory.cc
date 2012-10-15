@@ -1,10 +1,13 @@
 
 #include <fcntl.h>
 
-#include "XrdOuc/XrdOucLock.hh"
+#include "XrdSys/XrdSysPthread.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 #include "XrdOuc/XrdOucStream.hh"
+#include "XrdOss/XrdOss.hh"
+#if !defined(HAVE_VERSIONS)
 #include "XrdOss/XrdOssApi.hh"
+#endif
 #include "XrdSys/XrdSysPlugin.hh"
 #include "XrdVersion.hh"
 
@@ -31,9 +34,13 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 
 // If no library has been specified, return the default object
 //
+#if defined(HAVE_VERSIONS)
+   if (!OssLib) OssLib = "libXrdOfs.so"
+#else
    if (!OssLib) {if (myOssSys.Init(Logger, config_fn)) return 0;
                     else return (XrdOss *)&myOssSys;
                 }
+#endif
 
 // Create a plugin object
 //
@@ -75,11 +82,16 @@ XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
                             const char   *config_filename,
                             const char   *parameters)
 {
+    XrdSysError err(0, "XrdFileCache_");
+    err.logger(logger);
+    err.Emsg("Retrieve", "Retrieving a caching proxy factory.");
     Factory &factory = Factory::GetInstance();
     if (!factory.Config(logger, config_filename, parameters))
     {
+        err.Emsg("Retrieve", "Error - unable to create a factory.");
         return NULL;
     }
+    err.Emsg("Retrieve", "Success - returning a factory.");
     return &factory;
 }
 }
@@ -87,7 +99,7 @@ XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
 Factory &
 Factory::GetInstance()
 {
-    XrdOucLock monitor(&m_factory_mutex);
+    XrdSysMutexHelper monitor(&m_factory_mutex);
     if (m_factory == NULL)
         m_factory = new Factory();
     return *m_factory;
@@ -166,11 +178,14 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
         if (!output_fs)
         {
             m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
-           // AMT temporary work withou XrdOssß
+           // AMT temporary work without XrdOss
            // retval = false;
         }
         m_output_fs = output_fs;
     }
+
+    if (retval) m_log.Emsg("Config", "Configuration of factory successful");
+    else m_log.Emsg("Config", "Configuration of factory failed");
 
     return retval;
 }
@@ -298,12 +313,13 @@ PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io)
 {
     std::string filename = io.Path();
+    m_log.Emsg("GetPrefetch", "Prefetch object requested for ", filename.c_str());
     if (!Decide(filename))
     {
         PrefetchPtr result;
         return result;
     }
-    XrdOucLock monitor(&m_factory_mutex);
+    XrdSysMutexHelper monitor(&m_factory_mutex);
     PrefetchWeakPtrMap::const_iterator it = m_prefetch_map.find(filename);
 
     if (it == m_prefetch_map.end())

@@ -3,15 +3,19 @@
 #include "Cache.hh"
 #include "Prefetch.hh"
 
+#include <sstream>
+
 #include "XrdClient/XrdClientConst.hh"
+#include "XrdSys/XrdSysError.hh"
 
 using namespace XrdFileCache;
 
-IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pread)
+IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pread, XrdSysError &log)
     : m_io(io),
       m_stats(stats),
       m_prefetch(pread),
-      m_cache(cache)
+      m_cache(cache),
+      m_log(log)
 {}
 
 XrdOucCacheIO *
@@ -27,6 +31,8 @@ IO::Detach()
  */
 int IO::Read (char *buff, long long off, int size)
 {
+    std::stringstream ss; ss << "Read " << off << "@" << size;
+    m_log.Emsg("IO", ss.str().c_str());
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
     if (m_prefetch)

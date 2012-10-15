@@ -16,6 +16,8 @@
 
 #include "XrdFileCacheFwd.hh"
 
+class XrdSysError;
+
 namespace XrdFileCache {
 
 class IO : public XrdOucCacheIO
@@ -46,7 +48,7 @@ public:
     int Write(char *Buffer, long long Offset, int Length) { errno = ENOTSUP; return -1; }
 
 protected:
-    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, PrefetchPtr pread);
+    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, PrefetchPtr pread, XrdSysError &);
 
 private:
 
@@ -57,6 +59,7 @@ private:
     XrdOucCacheStats & m_stats;
     PrefetchPtr m_prefetch;
     Cache & m_cache;
+    XrdSysError m_log;
 
 };
 
