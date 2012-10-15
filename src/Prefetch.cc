@@ -189,16 +189,14 @@ Prefetch::Open()
     XrdOucEnv myEnv;
    
    // AMT temporary replace XrdOss
-/*
+
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), temp_path.c_str(), 0600, myEnv, XRDOSS_mkpath);
-    XrdOssDF *tmp_file = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
-    m_output = static_cast<XrdOssFile *>(tmp_file);
+    m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
     if (!m_output || m_output->Open(temp_path.c_str(), O_WRONLY, 0600, myEnv) < 0)
     {
         return false;
     }
-   }
- */
+
    
    mkpath(temp_path.c_str(), 07777); 
       m_outTMP = open(temp_path.c_str(), O_WRONLY | O_CREAT , 0666);
@@ -290,7 +288,7 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     off_t prefetch_offset = GetOffset();
     if (prefetch_offset < offset)
     {
-       m_log.Emsg("Read", "Offset bellow requested offset. Nothing to read.", ss.str().c_str());
+       m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
         return 0;
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))

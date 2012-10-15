@@ -32,12 +32,15 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
    XrdSysPlugin    *myLib;
    XrdOss          *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
 
+   XrdSysError err(Logger, "XrdOssGetSS");
+
 // If no library has been specified, return the default object
 //
 #if defined(HAVE_VERSIONS)
    if (!OssLib) OssLib = "libXrdOfs.so"
 #else
-   if (!OssLib) {if (myOssSys.Init(Logger, config_fn)) return 0;
+   if (!OssLib || !*OssLib) {err.Emsg("GetOSS", "Attempting to initiate default OSS object.");
+                 if (myOssSys.Init(Logger, config_fn)) return 0;
                     else return (XrdOss *)&myOssSys;
                 }
 #endif
@@ -45,6 +48,7 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 // Create a plugin object
 //
    OssEroute.logger(Logger);
+   OssEroute.Emsg("XrdOssGetSS", "Initializing OSS lib from ", OssLib);
 #if defined(HAVE_VERSIONS)
    if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
                                   myOssSys.myVersion))) return 0;
@@ -108,6 +112,7 @@ Factory::GetInstance()
 XrdOucCache *
 Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 {
+    m_log.Emsg("Create", "Creating a new cache object.");
     return new Cache(m_stats, m_log);
 }
 
@@ -117,6 +122,10 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 
     m_log.logger(logger);
     m_log.Emsg("Config", "Configuring a file cache.");
+
+    const char * cache_env;
+    if (!(cache_env = getenv("XRDPOSIX_CACHE")) || !*cache_env)
+        XrdOucEnv::Export("XRDPOSIX_CACHE", "mode=s&optwr=0");
 
     XrdOucEnv myEnv;
     XrdOucStream Config(&m_log, getenv("XRDINSTANCE"), &myEnv, "=====> ");
@@ -178,8 +187,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
         if (!output_fs)
         {
             m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
-           // AMT temporary work without XrdOss
-           // retval = false;
+            retval = false;
         }
         m_output_fs = output_fs;
     }
