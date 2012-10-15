@@ -158,7 +158,8 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
         if (!output_fs)
         {
             m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
-            retval = false;
+           // AMT temporary work withou XrdOssß
+           // retval = false;
         }
         m_output_fs = output_fs;
     }
