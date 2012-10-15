@@ -29,10 +29,13 @@ protected:
 private:
 
     inline off_t GetOffset() {return __sync_fetch_and_or(&m_offset, 0);}
-    bool GetTempFilename(std::string&);
+   bool GetTempFilename(std::string&);
 
     XrdOss & m_output_fs;
+   
     XrdOssFile *m_output;
+    int  m_outTMP;  // AMT:: FD returned by open call, used instead m_output unill problem with sys plugin is solved
+   
     XrdOucCacheIO & m_input;
     off_t m_offset;
     static const size_t m_buffer_size;
