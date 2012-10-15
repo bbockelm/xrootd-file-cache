@@ -16,6 +16,8 @@
 #include <XrdSys/XrdSysPthread.hh>
 #include <XrdOuc/XrdOucCache.hh>
 
+class XrdOucStream;
+
 namespace XrdFileCache {
 
 class Cache;

@@ -1,4 +1,6 @@
 
+#include <fcntl.h>
+
 #include "XrdOuc/XrdOucLock.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 #include "XrdOuc/XrdOucStream.hh"
@@ -36,8 +38,12 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 // Create a plugin object
 //
    OssEroute.logger(Logger);
+#if defined(HAVE_VERSIONS)
    if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
                                   myOssSys.myVersion))) return 0;
+#else
+   if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib))) return 0;
+#endif
 
 // Now get the entry point of the object creator
 //
@@ -47,7 +53,9 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 
 // Get the Object now
 //
+#if defined(HAVE_VERSIONS)
    myLib->Persist(); delete myLib;
+#endif
    return ep((XrdOss *)&myOssSys, Logger, config_fn, OssParms);
 }
 
@@ -229,7 +237,11 @@ Factory::xdlib(XrdOucStream &Config)
         val = "XrdFileCacheAllowAlways";
     }
 
+#if defined(HAVE_VERSIONS)
     XrdSysPlugin myLib(&m_log, val, "decisionlib", NULL);
+#else
+    XrdSysPlugin myLib(&m_log, val);
+#endif
     Decision *(*ep)(XrdSysError&);
     ep = (Decision *(*)(XrdSysError&))myLib.getPlugin("XrdFileCacheGetDecision");
     if (!ep) return false;

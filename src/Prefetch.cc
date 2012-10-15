@@ -1,6 +1,7 @@
 
 #include <vector>
 #include <sstream>
+#include <fcntl.h>
 
 #include "Prefetch.hh"
 #include "Factory.hh"
@@ -34,7 +35,7 @@ Prefetch::Run()
         return;
 
     m_log.Emsg("Run", "Beginning prefetch of ", m_input.Path());
-    vector<char> buff;
+    std::vector<char> buff;
     buff.reserve(m_buffer_size);
 
     int retval = 0;

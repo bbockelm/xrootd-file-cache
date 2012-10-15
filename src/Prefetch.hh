@@ -5,7 +5,7 @@
  */
 
 #include <XrdSys/XrdSysPthread.hh>
-#include <XrdOss/XrdOssApi.hh>
+#include <XrdOss/XrdOss.hh>
 #include <XrdOuc/XrdOucCache.hh>
 
 namespace XrdFileCache {
@@ -33,7 +33,7 @@ private:
 
     XrdOss & m_output_fs;
    
-    XrdOssFile *m_output;
+    XrdOssDF *m_output;
     int  m_outTMP;  // AMT:: FD returned by open call, used instead m_output unill problem with sys plugin is solved
    
     XrdOucCacheIO & m_input;
