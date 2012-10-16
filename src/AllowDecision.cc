@@ -1,6 +1,8 @@
 
 #include "Decision.hh"
 
+#include "XrdSys/XrdSysError.hh"
+
 /*
   The simplest example of a decision plugin - always allow the file
   to be fetched to the cache.

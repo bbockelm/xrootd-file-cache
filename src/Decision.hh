@@ -1,7 +1,7 @@
 
 #include <string>
 
-#include "XrdOss/XrdOssApi.hh"
+#include "XrdOss/XrdOss.hh"
 
 namespace XrdFileCache {
 
