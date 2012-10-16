@@ -22,6 +22,10 @@ XrdOucCacheIO *
 IO::Detach()
 {
     XrdOucCacheIO * io = &m_io;
+    if (m_prefetch.get())
+    {
+        m_prefetch->CloseCleanly();
+    }
     m_cache.Detach(this); // This will delete us!
     return io;
 }

@@ -34,6 +34,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     m_attached ++;
     if (io)
     {
+        m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
         PrefetchPtr prefetch = Factory::GetInstance().GetPrefetch(*io);
 
         // TODO: Check to see if we should prefetch this!
@@ -44,6 +45,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     }
     else
     {
+        m_attached --;
         return NULL;
     }
 }

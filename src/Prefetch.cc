@@ -21,11 +21,20 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_offset(0),
       m_started(false),
       m_finalized(false),
+      m_stop(false),
       m_cond(0), // We will explicitly lock the condition before use.
       m_log(0, "Prefetch_"),
       m_temp_filename("")
 {
     m_log.logger(log.logger());
+}
+
+void
+Prefetch::CloseCleanly()
+{
+    XrdSysCondVarHelper monitor(m_cond);
+    if (m_started && !m_finalized)
+        m_stop = true;
 }
 
 void
@@ -57,23 +66,32 @@ Prefetch::Run()
         }
         if (retval < 0)
             break;
-        if (m_offset % 1024*1024 == 0)
+        if (m_offset % (10*1024*1024) == 0)
         {
             std::stringstream ss;
             ss << "Prefetched " << (m_offset/(1024*1024)) << " MB";
             m_log.Emsg("Fetching", ss.str().c_str());
         }
+        // Note we don't lock read-access, as this will only ever go from 0 to 1
+        // Reading during a partial write is OK in this case.
+        if (m_stop)
+        {
+            m_log.Emsg("Read", "Stopping for a clean close");
+            retval = -EINTR;
+            break;
+        }
     }
 
     if (retval < 0) {
         m_log.Emsg("Read", retval, "Failure prefetching file");
-        Fail();
+        Fail(retval != -EINTR);
     }
 
     // AMT: m_output has to be set in the Prefetch::Read() call. 
     // Temporary comment-out line bellow until it is clear what to do 
     // with file descriptors. 
-    // Close();
+    Close();
+
 }
 
 void
@@ -82,14 +100,18 @@ Prefetch::Join()
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
     {
+        m_log.Emsg("Join", "Prefetch is already finalized");
         return;
     }
     else if (m_started)
     {
+        m_log.Emsg("Join", "Waiting until prefetch finishes");
         m_cond.Wait();
+        m_log.Emsg("Join", "Prefetch finished");
     }
     else
     {
+        m_log.Emsg("Join", "Prefetch not started - running it before Joining");
         monitor.UnLock();
         // Because we have unlocked the mutex, someone else may be
         // able to race us and Run - causing us to exit early.
@@ -150,6 +172,14 @@ Prefetch::Open()
     {
         return false;
     }
+
+    // If the file is pre-existing, pick up from where we left off.
+    struct stat fileStat;
+    if (m_output->Fstat(&fileStat) == 0)
+    {
+        m_offset = fileStat.st_size;
+    }
+
     m_finalized = false;
     return true;
 }
@@ -164,7 +194,7 @@ Prefetch::Close()
 
     if (m_output)
     {
-       m_log.Emsg("Close", "Close m_output");
+        m_log.Emsg("Close", "Close m_output");
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -177,7 +207,7 @@ Prefetch::Close()
 }
 
 bool
-Prefetch::Fail()
+Prefetch::Fail(bool cleanup)
 {
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
@@ -193,9 +223,10 @@ Prefetch::Fail()
         m_output = NULL;
     }
    
-    if (!m_temp_filename.empty())
+    if (cleanup && !m_temp_filename.empty())
         m_output_fs.Unlink(m_temp_filename.c_str());
 
+    m_cond.Broadcast();
     m_finalized = true;
     return true;
 }
@@ -210,10 +241,11 @@ ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
 {
     XrdSysCondVarHelper monitor(m_cond);
-    if (!m_started) {
+    if (!m_started || m_finalized) {
         errno = EBADF;
         return -errno;
     }
+    // TODO: if the file has been finalized, we could read it from its final location
 
     std::stringstream ss;
     ss << "offset = " << offset;
