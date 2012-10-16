@@ -102,27 +102,25 @@ Prefetch::Join()
 bool
 Prefetch::GetTempFilename(std::string &result)
 { 
-   std::string path = m_input.Path();
-   size_t split_loc = path.rfind("//");
-   
-   if (split_loc == path.npos)
-      return false;
-   
-   
-   size_t kloc = path.rfind("?oss");
-   
+    std::string path = m_input.Path();
+    size_t split_loc = path.rfind("//");
 
-      if (kloc == path.npos)
-      return false;
-   
-   //   printf("slpit = %d, loc = %d last %d \n",  (int)split_loc, (int)kloc , (int)path.npos);
-   //  std::cerr << path.substr(split_loc+1,kloc -split_loc -1) << std::endl;
-   std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
-   result = tmp_directory + path.substr(split_loc+1,kloc -split_loc -1) ;
-   
-   return true;
+    if (split_loc == path.npos)
+        return false;
+
+
+    size_t kloc = path.rfind("?");
+
+
+    if (kloc == path.npos)
+        return false;
+
+    std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
+    result = tmp_directory + path.substr(split_loc+1,kloc-split_loc-1);
+
+    return true;
 }
-            
+
 bool
 Prefetch::Open()
 {
@@ -135,7 +133,7 @@ Prefetch::Open()
     m_finalized = true;
 
     std::string temp_path;
-   
+
     if (!GetTempFilename(temp_path))
     {
         m_log.Emsg("Open", "Failed to create temporary filename for ", m_input.Path());
@@ -163,7 +161,7 @@ Prefetch::Close()
     if (!m_started) {
         return false;
     }
-   
+
     if (m_output)
     {
        m_log.Emsg("Close", "Close m_output");
@@ -172,7 +170,7 @@ Prefetch::Close()
         m_output = NULL;
     }
     m_output_fs.Rename(m_temp_filename.c_str(), m_input.Path());
-   
+
     m_cond.Broadcast();
     m_finalized = true;
     return false; // Fail until this is implemented.
@@ -204,7 +202,7 @@ Prefetch::Fail()
 
 Prefetch::~Prefetch()
 {
-   m_log.Emsg("~Prefetch", "destructing this ....");
+    m_log.Emsg("Destructor", "Destroying Prefetch Object");
     Join();
 }
 
@@ -217,13 +215,13 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
         return -errno;
     }
 
-     std::stringstream ss;
+    std::stringstream ss;
     ss << "offset = " << offset;
-   
+
     off_t prefetch_offset = GetOffset();
     if (prefetch_offset < offset)
     {
-       m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
+        m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
         return 0;
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
@@ -236,7 +234,7 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     {
        size_t to_read = offset + size - prefetch_offset;
        ss << ", to_read  = " << to_read;
-       
+
        m_log.Emsg("Read", "read partial read ", ss.str().c_str());
        return m_output->Read(buff, offset, to_read);
     }
