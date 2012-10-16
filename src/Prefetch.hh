@@ -3,7 +3,8 @@
 /*
  * A simple prefetch class.
  */
-
+#include <string.h>
+#include <string>
 #include <XrdSys/XrdSysPthread.hh>
 #include <XrdOss/XrdOss.hh>
 #include <XrdOuc/XrdOucCache.hh>
