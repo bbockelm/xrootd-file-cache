@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
   for (int i = 0 ; i < xx; ++i)
      c->Read(&buf[0], offset + size*i, size);
 
-  printf("write buff \n");
-  //  write(1, &buf[0], size);
+  // printf("write buff \n");
+  // write(1, &buf[0], size);
 
   while(1)
   {
