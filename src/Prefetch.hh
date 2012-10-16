@@ -3,7 +3,8 @@
 /*
  * A simple prefetch class.
  */
-
+#include <string.h>
+#include <string>
 #include <XrdSys/XrdSysPthread.hh>
 #include <XrdOss/XrdOss.hh>
 #include <XrdOuc/XrdOucCache.hh>
@@ -34,7 +35,6 @@ private:
     XrdOss & m_output_fs;
    
     XrdOssDF *m_output;
-    int  m_outTMP;  // AMT:: FD returned by open call, used instead m_output unill problem with sys plugin is solved
    
     XrdOucCacheIO & m_input;
     off_t m_offset;
