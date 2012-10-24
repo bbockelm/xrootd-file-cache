@@ -173,6 +173,7 @@ Prefetch::Open()
 
     // If the file is pre-existing, pick up from where we left off.
     struct stat fileStat;
+   m_temp_filename = temp_path;
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;
@@ -200,6 +201,8 @@ Prefetch::Close()
 
     // final file has same name , except of missing '.tmp' extension
     std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
+
+    m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
     m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
 
     m_cond.Broadcast();
