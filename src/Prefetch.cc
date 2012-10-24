@@ -6,6 +6,7 @@
 
 #include "Prefetch.hh"
 #include "Factory.hh"
+#include "Cache.hh"
 
 #include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -120,21 +121,22 @@ Prefetch::Join()
 bool
 Prefetch::GetTempFilename(std::string &result)
 { 
+   /*
     std::string path = m_input.Path();
     size_t split_loc = path.rfind("//");
 
     if (split_loc == path.npos)
         return false;
 
-
     size_t kloc = path.rfind("?");
 
 
     if (kloc == path.npos)
         return false;
-
+   */
+    Cache::getFilePathFromURL(m_input.Path(), result);
     std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
-    result = tmp_directory + path.substr(split_loc+1,kloc-split_loc-1);
+    result = tmp_directory + result + ".tmp";
 
     return true;
 }
@@ -195,7 +197,10 @@ Prefetch::Close()
         delete m_output;
         m_output = NULL;
     }
-    m_output_fs.Rename(m_temp_filename.c_str(), m_input.Path());
+
+    // final file has same name , except of missing '.tmp' extension
+    std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
+    m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
 
     m_cond.Broadcast();
     m_finalized = true;

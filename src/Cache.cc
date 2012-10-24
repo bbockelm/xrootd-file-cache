@@ -78,12 +78,34 @@ Cache::Detach(XrdOucCacheIO* io)
     delete io;
 }
 
+bool
+Cache::getFilePathFromURL(const char* url, std::string &result)
+{
+   std::string path = url;
+   size_t split_loc = path.rfind("//");
+
+   if (split_loc == path.npos)
+      return false;
+
+   size_t kloc = path.rfind("?");
+   result = path.substr(split_loc+1,kloc-split_loc-1);
+
+   if (kloc == path.npos)
+      return false;
+
+   return true;
+}
 
 void
 Cache::checkDiskCache(XrdOucCacheIO* io)
 {
    XrdOucEnv myEnv;
-   int res =  m_cached_file->Open(io->Path(), O_RDONLY, 0600, myEnv);
+
+   std::string fname;
+   getFilePathFromURL(io->Path(), fname);
+   fname = Factory::GetInstance().GetTempDirectory() + fname;
+
+   int res =  m_cached_file->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
    if (res >= 0)
       m_read_from_disk = true;
 }
