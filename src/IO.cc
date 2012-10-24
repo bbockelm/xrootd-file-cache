@@ -1,4 +1,3 @@
-
 #include "IO.hh"
 #include "Cache.hh"
 #include "Prefetch.hh"
@@ -39,16 +38,32 @@ int IO::Read (char *buff, long long off, int size)
     m_log.Emsg("IO", ss.str().c_str());
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
-    if (m_prefetch)
+
+    if (m_cache.readFromDisk())
     {
-        retval = m_prefetch->Read(buff, off, size);
-        if (retval > 0)
-        {
-            bytes_read += retval;
-            buff += retval;
-            size -= retval;
-        }
+       retval = m_cache.getCachedFile()->Read(buff, off, size);
     }
+    else if (m_prefetch)
+    {
+       if (m_prefetch->hasCompletedSuccessfully())
+       {
+          m_cache.checkDiskCache(&m_io);
+          retval = m_cache.getCachedFile()->Read(buff, off, size);
+       }
+       else
+       {
+          retval = m_prefetch->Read(buff, off, size);     
+       }
+    }
+
+    if (retval > 0)
+    {
+       bytes_read += retval;
+       buff += retval;
+       size -= retval;
+    }
+
+
     if ((size > 0) && ((retval = m_io.Read(buff, off, size)) > 0))
     {
             bytes_read += retval;

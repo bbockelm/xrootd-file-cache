@@ -87,11 +87,7 @@ Prefetch::Run()
         Fail(retval != -EINTR);
     }
 
-    // AMT: m_output has to be set in the Prefetch::Read() call. 
-    // Temporary comment-out line bellow until it is clear what to do 
-    // with file descriptors. 
     Close();
-
 }
 
 void
@@ -203,6 +199,7 @@ Prefetch::Close()
 
     m_cond.Broadcast();
     m_finalized = true;
+
     return false; // Fail until this is implemented.
 }
 
@@ -250,6 +247,8 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     std::stringstream ss;
     ss << "offset = " << offset;
 
+
+
     off_t prefetch_offset = GetOffset();
     if (prefetch_offset < offset)
     {
@@ -272,3 +271,13 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     }
 }
 
+
+
+bool
+Prefetch::hasCompletedSuccessfully() const
+{
+   // AMT : this is temporary simplification.
+   //       should consolidate m_started, m_finalized, and m_stop first
+
+   return m_finalized == true;
+}
