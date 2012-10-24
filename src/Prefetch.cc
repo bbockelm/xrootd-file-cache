@@ -66,7 +66,10 @@ Prefetch::Run()
             __sync_fetch_and_add(&m_offset, retval);
         }
         if (retval < 0)
-            break;
+        {
+           break;
+        }
+       
         if (m_offset % (10*1024*1024) == 0)
         {
             std::stringstream ss;
@@ -85,6 +88,7 @@ Prefetch::Run()
 
     if (retval < 0) {
         m_log.Emsg("Read", retval, "Failure prefetching file");
+        m_stop = true;
         Fail(retval != -EINTR);
     }
 
@@ -121,19 +125,6 @@ Prefetch::Join()
 bool
 Prefetch::GetTempFilename(std::string &result)
 { 
-   /*
-    std::string path = m_input.Path();
-    size_t split_loc = path.rfind("//");
-
-    if (split_loc == path.npos)
-        return false;
-
-    size_t kloc = path.rfind("?");
-
-
-    if (kloc == path.npos)
-        return false;
-   */
     Cache::getFilePathFromURL(m_input.Path(), result);
     std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
     result = tmp_directory + result + ".tmp";
@@ -284,8 +275,5 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
 bool
 Prefetch::hasCompletedSuccessfully() const
 {
-   // AMT : this is temporary simplification.
-   //       should consolidate m_started, m_finalized, and m_stop first
-
-   return m_finalized == true;
+   return m_finalized == true && m_stop == false;
 }
