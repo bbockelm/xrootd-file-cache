@@ -41,17 +41,20 @@ int IO::Read (char *buff, long long off, int size)
 
     if (m_cache.readFromDisk())
     {
+       m_log.Emsg("IO", ">>> read from disk");
        retval = m_cache.getCachedFile()->Read(buff, off, size);
     }
     else if (m_prefetch)
     {
        if (m_prefetch->hasCompletedSuccessfully())
        {
+          m_log.Emsg("IO", ">>> open file from disk and read from it");
           m_cache.checkDiskCache(&m_io);
           retval = m_cache.getCachedFile()->Read(buff, off, size);
        }
        else
        {
+          m_log.Emsg("IO", ">>> read from Prefetch");
           retval = m_prefetch->Read(buff, off, size);     
        }
     }
