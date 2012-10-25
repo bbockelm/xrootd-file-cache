@@ -73,11 +73,27 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
 
+
+void * TempDirCleanupThread(void * factory_void)
+{
+  // Factory *factory = static_cast<Factory *>(factory_void);
+   while (1)
+   {
+      printf("Cleanup:: check for access time ...\n");
+      sleep(2);   
+   }
+   
+   return NULL;
+}
+
+
 Factory::Factory()
     : m_log(0, "XrdFileCache_"),
       m_temp_directory("/tmp"),
       m_username("nobody")
 {
+   pthread_t tid;
+   XrdSysThread::Run(&tid, TempDirCleanupThread, (void *)(this), 0, "XrdFileCache TempDirCleanup");
 }
 
 extern "C"
