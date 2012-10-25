@@ -1,4 +1,4 @@
-
+#include <sstream>
 #include <fcntl.h>
 
 #include "XrdSys/XrdSysPthread.hh"
@@ -76,11 +76,17 @@ XrdSysMutex Factory::m_factory_mutex;
 
 void * TempDirCleanupThread(void * factory_void)
 {
-  // Factory *factory = static_cast<Factory *>(factory_void);
+   Factory *factory = static_cast<Factory *>(factory_void);
+   static int max_age_days = 2;
+   static int max_age_sec = max_age_days * 86400;
+
    while (1)
    {
-      printf("Cleanup:: check for access time ...\n");
-      sleep(2);   
+      std::stringstream ss;  
+      ss << "find " << factory->GetTempDirectory() << " -atime +"<< max_age_days <<" -type f | xargs rm";  
+      std::cerr << ss.str();   
+      system(ss.str().c_str());
+      sleep(max_age_sec);   
    }
    
    return NULL;
