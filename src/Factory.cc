@@ -83,7 +83,7 @@ void * TempDirCleanupThread(void * factory_void)
    while (1)
    {
       std::stringstream ss;  
-      ss << "find " << factory->GetTempDirectory() << " -atime +"<< max_age_days <<" -type f | xargs rm";  
+      ss << "find " << factory->GetTempDirectory() << " -user" << factory->GetUsername() << " -atime +"<< max_age_days <<" -type f | xargs rm";  
       std::cerr << ss.str();   
       system(ss.str().c_str());
       sleep(max_age_sec);   
