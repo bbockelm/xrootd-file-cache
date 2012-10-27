@@ -6,6 +6,7 @@
 
 #include "Prefetch.hh"
 #include "Factory.hh"
+#include "Cache.hh"
 
 #include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -65,7 +66,10 @@ Prefetch::Run()
             __sync_fetch_and_add(&m_offset, retval);
         }
         if (retval < 0)
-            break;
+        {
+           break;
+        }
+       
         if (m_offset % (10*1024*1024) == 0)
         {
             std::stringstream ss;
@@ -84,14 +88,11 @@ Prefetch::Run()
 
     if (retval < 0) {
         m_log.Emsg("Read", retval, "Failure prefetching file");
+        m_stop = true;
         Fail(retval != -EINTR);
     }
 
-    // AMT: m_output has to be set in the Prefetch::Read() call. 
-    // Temporary comment-out line bellow until it is clear what to do 
-    // with file descriptors. 
     Close();
-
 }
 
 void
@@ -124,21 +125,9 @@ Prefetch::Join()
 bool
 Prefetch::GetTempFilename(std::string &result)
 { 
-    std::string path = m_input.Path();
-    size_t split_loc = path.rfind("//");
-
-    if (split_loc == path.npos)
-        return false;
-
-
-    size_t kloc = path.rfind("?");
-
-
-    if (kloc == path.npos)
-        return false;
-
+    Cache::getFilePathFromURL(m_input.Path(), result);
     std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
-    result = tmp_directory + path.substr(split_loc+1,kloc-split_loc-1);
+    result = tmp_directory + result + ".tmp";
 
     return true;
 }
@@ -175,6 +164,7 @@ Prefetch::Open()
 
     // If the file is pre-existing, pick up from where we left off.
     struct stat fileStat;
+   m_temp_filename = temp_path;
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;
@@ -199,10 +189,16 @@ Prefetch::Close()
         delete m_output;
         m_output = NULL;
     }
-    m_output_fs.Rename(m_temp_filename.c_str(), m_input.Path());
+
+    // final file has same name , except of missing '.tmp' extension
+    std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
+
+    m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
+    m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
 
     m_cond.Broadcast();
     m_finalized = true;
+
     return false; // Fail until this is implemented.
 }
 
@@ -250,6 +246,8 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     std::stringstream ss;
     ss << "offset = " << offset;
 
+
+
     off_t prefetch_offset = GetOffset();
     if (prefetch_offset < offset)
     {
@@ -272,3 +270,10 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     }
 }
 
+
+
+bool
+Prefetch::hasCompletedSuccessfully() const
+{
+   return m_finalized == true && m_stop == false;
+}

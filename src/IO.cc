@@ -1,12 +1,14 @@
-
 #include "IO.hh"
 #include "Cache.hh"
 #include "Prefetch.hh"
 
 #include <sstream>
+#include <stdio.h>
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
+
+#define HAVE_READV
 
 using namespace XrdFileCache;
 
@@ -39,16 +41,35 @@ int IO::Read (char *buff, long long off, int size)
     m_log.Emsg("IO", ss.str().c_str());
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
-    if (m_prefetch)
+
+    if (m_cache.readFromDisk())
     {
-        retval = m_prefetch->Read(buff, off, size);
-        if (retval > 0)
-        {
-            bytes_read += retval;
-            buff += retval;
-            size -= retval;
-        }
+       m_log.Emsg("IO", ">>> read from disk");
+       retval = m_cache.getCachedFile()->Read(buff, off, size);
     }
+    else if (m_prefetch)
+    {
+       if (m_prefetch->hasCompletedSuccessfully())
+       {
+          m_log.Emsg("IO", ">>> open file from disk and read from it");
+          m_cache.checkDiskCache(&m_io);
+          retval = m_cache.getCachedFile()->Read(buff, off, size);
+       }
+       else
+       {
+          m_log.Emsg("IO", ">>> read from Prefetch");
+          retval = m_prefetch->Read(buff, off, size);     
+       }
+    }
+
+    if (retval > 0)
+    {
+       bytes_read += retval;
+       buff += retval;
+       size -= retval;
+    }
+
+
     if ((size > 0) && ((retval = m_io.Read(buff, off, size)) > 0))
     {
             bytes_read += retval;
@@ -62,6 +83,7 @@ int IO::Read (char *buff, long long off, int size)
 #if defined(HAVE_READV)
 ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
 {
+    printf("======== IO::ReadV \n");
     ssize_t bytes_read = 0;
     size_t missing = 0;
     XrdSfsReadV missingReadV[READV_MAXCHUNKS];

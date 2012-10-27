@@ -41,6 +41,7 @@ public:
 
     std::string &GetUsername() {return m_username;}
     std::string &GetTempDirectory() {return m_temp_directory;}
+    XrdOss* &GetOss() {return m_output_fs;}
 
     static Factory &GetInstance();
 
