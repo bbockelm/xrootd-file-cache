@@ -3,9 +3,12 @@
 #include "Prefetch.hh"
 
 #include <sstream>
+#include <stdio.h>
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
+
+#define HAVE_READV
 
 using namespace XrdFileCache;
 
@@ -80,6 +83,7 @@ int IO::Read (char *buff, long long off, int size)
 #if defined(HAVE_READV)
 ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
 {
+    printf("======== IO::ReadV \n");
     ssize_t bytes_read = 0;
     size_t missing = 0;
     XrdSfsReadV missingReadV[READV_MAXCHUNKS];
