@@ -30,7 +30,9 @@ int main(int argc, char *argv[])
 
   long long offset = atoll(argv[2]);
   long long sizell = atoi (argv[3]);
-  int xx = atoi (argv[4]);
+  int numCopies = 1;
+  if (argc > 4)
+     numCopies = atoi (argv[4]);
 
   if (offset < 0)
   {
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
   buf.resize(size);
 
   printf("reading buff \n");
-  for (int i = 0 ; i < xx; ++i)
+  for (int i = 0 ; i < numCopies; ++i)
      c->Read(&buf[0], offset + size*i, size);
 
   // printf("write buff \n");

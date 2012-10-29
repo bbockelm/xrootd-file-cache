@@ -13,6 +13,8 @@
 
 #include "XrdFileCacheFwd.hh"
 
+class XrdOssDF;
+
 namespace XrdFileCache {
 
 class Cache : public XrdOucCache
@@ -28,10 +30,15 @@ public:
     int isAttached();
 
     virtual XrdOucCache* Create(XrdOucCache::Parms&, XrdOucCacheIO::aprParms*) {return NULL;}
+   static bool getFilePathFromURL(const char* url, std::string& res);
 
 protected:
 
     Cache(XrdOucCacheStats&, XrdSysError&);
+
+    void checkDiskCache(XrdOucCacheIO*);
+    XrdOssDF* getCachedFile() { return m_cached_file; }
+    bool readFromDisk() const { return m_read_from_disk; }
 
 private:
 
@@ -45,6 +52,10 @@ private:
 
     XrdSysError & m_log;
     XrdOucCacheStats & m_stats;
+
+   XrdOssDF* m_cached_file;
+   bool      m_read_from_disk;
+
 
 };
 
