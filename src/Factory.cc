@@ -1,5 +1,6 @@
 #include <sstream>
 #include <fcntl.h>
+#include <stdio.h>
 
 #include "XrdSys/XrdSysPthread.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -15,6 +16,11 @@
 #include "Factory.hh"
 #include "Prefetch.hh"
 #include "Decision.hh"
+
+namespace 
+{
+ static  int max_temp_dir_age = 86400 *2; // e.g. check temp dir every 2 days
+}
 
 using namespace XrdFileCache;
 
@@ -74,21 +80,62 @@ Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
 
 
-void * TempDirCleanupThread(void * factory_void)
+void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
+{   
+   char buff[256];
+   XrdOucEnv env;
+   struct stat st;
+   int  rdr;
+   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
+   {
+      std::string np = path + "/" + std::string(buff); 
+      if ( strlen(&buff[0]) == 0  )
+      {
+         // std::cout << "Finish read dir. Break loop \n";
+         break;
+      }
+
+
+      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
+      {
+         XrdOssDF* dh = m_output_fs->newDir(m_username.c_str());
+         XrdOssDF* fh = m_output_fs->newFile(m_username.c_str());
+
+         if ( dh->Opendir(np.c_str(), env)  >= 0 )
+         {
+            CheckDirStatRecurse(dh, np);
+         }
+         else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
+         {
+            fh->Fstat(&st);
+            if ( time(0) - st.st_mtime > max_temp_dir_age )
+            {
+               // printf("\n!!!! REMOVING FILE [%s] age --- %d \n", &buff[0], int (time(0) -st.st_mtime));
+               m_output_fs->Unlink(np.c_str());
+            }
+
+         }
+
+         delete dh;
+         delete fh;
+      }
+   }
+}
+
+
+
+void* TempDirCleanupThread(void * factory_void)
 {
    Factory *factory = static_cast<Factory *>(factory_void);
-   static int max_age_days = 2;
-   static int max_age_sec = max_age_days * 86400;
+   XrdOssDF* fd = factory->GetOss()->newDir(factory->GetUsername().c_str());
+   XrdOucEnv env;
+   fd->Opendir(factory->GetTempDirectory().c_str(), env);
 
    while (1)
    {
-      std::stringstream ss;  
-      ss << "find " << factory->GetTempDirectory() << " -user " << factory->GetUsername() << " -atime +"<< max_age_days <<" -type f | xargs rm -f";  
-      std::cerr << ss.str();   
-      system(ss.str().c_str());
-      sleep(max_age_sec);   
+      factory->CheckDirStatRecurse(fd, factory->GetTempDirectory());
+      sleep(max_temp_dir_age);   
    }
-   
    return NULL;
 }
 
@@ -98,8 +145,6 @@ Factory::Factory()
       m_temp_directory("/tmp"),
       m_username("nobody")
 {
-   pthread_t tid;
-   XrdSysThread::Run(&tid, TempDirCleanupThread, (void *)(this), 0, "XrdFileCache TempDirCleanup");
 }
 
 extern "C"
@@ -118,6 +163,12 @@ XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
         return NULL;
     }
     err.Emsg("Retrieve", "Success - returning a factory.");
+
+
+ pthread_t tid;
+   XrdSysThread::Run(&tid, TempDirCleanupThread, &factory, 0, "XrdFileCache TempDirCleanup");
+
+
     return &factory;
 }
 }
