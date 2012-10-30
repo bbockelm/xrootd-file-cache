@@ -43,6 +43,7 @@ public:
     std::string &GetTempDirectory() {return m_temp_directory;}
     XrdOss* &GetOss() {return m_output_fs;}
 
+    void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
     static Factory &GetInstance();
 
 protected:
