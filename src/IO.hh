@@ -16,6 +16,7 @@
 
 #include "XrdFileCacheFwd.hh"
 
+#define HAVE_READV
 class XrdSysError;
 
 namespace XrdFileCache {
