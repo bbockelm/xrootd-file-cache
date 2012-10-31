@@ -98,12 +98,12 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
 
       if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
       {
-         XrdOssDF* dh = m_output_fs->newDir(m_username.c_str());
-         XrdOssDF* fh = m_output_fs->newFile(m_username.c_str());
+         std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+         std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
 
          if ( dh->Opendir(np.c_str(), env)  >= 0 )
          {
-            CheckDirStatRecurse(dh, np);
+            CheckDirStatRecurse(dh.get(), np);
          }
          else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
          {
@@ -115,9 +115,6 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
             }
 
          }
-
-         delete dh;
-         delete fh;
       }
    }
 }
@@ -142,7 +139,7 @@ void* TempDirCleanupThread(void * factory_void)
 
 Factory::Factory()
     : m_log(0, "XrdFileCache_"),
-      m_temp_directory("/tmp"),
+      m_temp_directory("/tmp/xrootd-file-cache/"),
       m_username("nobody")
 {
 }
