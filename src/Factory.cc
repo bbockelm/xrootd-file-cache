@@ -19,7 +19,7 @@
 
 namespace 
 {
-static  int max_temp_dir_age = 2; //86400 *2; // e.g. check temp dir every 2 days
+static  int max_temp_dir_age = 86400 *2; // e.g. check temp dir every 2 days
 }
 
 using namespace XrdFileCache;
@@ -86,6 +86,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
    XrdOucEnv env;
    struct stat st;
    int  rdr;
+   //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
    while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
    {
       std::string np = path + "/" + std::string(buff); 
@@ -100,7 +101,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
       {
          std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
          std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-
+         // std::cerr << "!!!!!! " << np << std::endl;
          if ( dh->Opendir(np.c_str(), env)  >= 0 )
          {
             CheckDirStatRecurse(dh.get(), np);
@@ -110,7 +111,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
             fh->Fstat(&st);
             if ( time(0) - st.st_mtime > max_temp_dir_age )
             {
-               printf("\n!!!! REMOVING FILE [%s] age --- %d \n", &buff[0], int (time(0) -st.st_mtime));
+               // printf("\n!!!! REMOVING FILE [%s] age --- %d \n", &buff[0], int (time(0) -st.st_mtime));
                m_output_fs->Unlink(np.c_str());
             }
 
@@ -122,13 +123,15 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
 
 void Factory::TempDirCleanup()
 {
-   XrdOssDF* fd = m_output_fs->newDir(m_username.c_str());
    XrdOucEnv env;
-   fd->Opendir(m_temp_directory.c_str(), env);
-
    while (1)
-   {
-      CheckDirStatRecurse(fd, m_temp_directory);
+   {   
+      // AMT: I don't know why recreate of XrdOssDF is necessary.
+      //      I think Opendir()/Close() should be enough. 
+      std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+      dh->Opendir(m_temp_directory.c_str(), env);
+      CheckDirStatRecurse(dh.get(), m_temp_directory);
+      dh->Close();
       sleep(max_temp_dir_age);   
    }
 }
@@ -137,23 +140,13 @@ void Factory::TempDirCleanup()
 void* TempDirCleanupThread(void*)
 {
    Factory::GetInstance().TempDirCleanup();
-   /*
-   XrdOssDF* fd = Factory::GetInstance().GetOss()->newDir(factory->GetUsername().c_str());
-   XrdOucEnv env;
-   fd->Opendir(Factory::GetInstance().GetTempDirectory().c_str(), env);
-
-   while (1)
-   {
-      factory->CheckDirStatRecurse(fd, factory->GetTempDirectory());
-      sleep(max_temp_dir_age);   
-      }*/
    return NULL;
 }
 
 
 Factory::Factory()
     : m_log(0, "XrdFileCache_"),
-      m_temp_directory("/tmp/xrootd-file-cache/"),
+      m_temp_directory("/tmp/xrootd-file-cache"),
       m_username("nobody")
 {
 }
@@ -176,11 +169,8 @@ XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
     err.Emsg("Retrieve", "Success - returning a factory.");
 
 
- pthread_t tid;
-    XrdSysThread::Run(&tid, TempDirCleanupThread, &factory, 0, "XrdFileCache TempDirCleanup");
- //   XrdSysThread::Run(&tid, factory, &factory, 0, "XrdFileCache TempDirCleanup");
-
-
+    pthread_t tid;
+    XrdSysThread::Run(&tid, TempDirCleanupThread, NULL, 0, "XrdFileCache TempDirCleanup");
     return &factory;
 }
 }
