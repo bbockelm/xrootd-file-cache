@@ -8,8 +8,6 @@
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
 
-#define HAVE_READV
-
 using namespace XrdFileCache;
 
 IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pread, XrdSysError &log)
