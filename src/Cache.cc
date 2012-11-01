@@ -42,7 +42,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     {
         m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
 
-        m_cached_file = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+        m_cached_file = Factory::GetInstance().GetOss().newFile(Factory::GetInstance().GetUsername().c_str());
         checkDiskCache(io);
 
         PrefetchPtr prefetch;

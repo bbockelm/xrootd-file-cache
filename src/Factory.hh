@@ -41,7 +41,7 @@ public:
 
     const std::string &GetUsername() const {return m_username;}
     const std::string &GetTempDirectory() const {return m_temp_directory;}
-    XrdOss* &GetOss() {return m_output_fs;}
+    XrdOss  &GetOss() const {return *m_output_fs;}
 
     void TempDirCleanup();
     static Factory &GetInstance();
