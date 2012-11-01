@@ -101,7 +101,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
       {
          std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
          std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-         // std::cerr << "!!!!!! " << np << std::endl;
+         // std::cerr << "check " << np << std::endl;
          if ( dh->Opendir(np.c_str(), env)  >= 0 )
          {
             CheckDirStatRecurse(dh.get(), np);
@@ -111,7 +111,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
             fh->Fstat(&st);
             if ( time(0) - st.st_mtime > max_temp_dir_age )
             {
-               // printf("\n!!!! REMOVING FILE [%s] age --- %d \n", &buff[0], int (time(0) -st.st_mtime));
+               m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
                m_output_fs->Unlink(np.c_str());
             }
 
@@ -124,15 +124,16 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
 void Factory::TempDirCleanup()
 {
    XrdOucEnv env;
+   int internval = (max_temp_dir_age > 7200) ? 7200 : max_temp_dir_age;
    while (1)
    {   
-      // AMT: I don't know why recreate of XrdOssDF is necessary.
-      //      I think Opendir()/Close() should be enough. 
+      // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
+      //      not work properly
       std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
       dh->Opendir(m_temp_directory.c_str(), env);
       CheckDirStatRecurse(dh.get(), m_temp_directory);
       dh->Close();
-      sleep(max_temp_dir_age);   
+      sleep(interval);   
    }
 }
 
@@ -214,7 +215,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     int fd;
     if ( (fd = open(config_filename, O_RDONLY, 0)) < 0)
     {
-        m_log.Emsg("Config", errno, "open config file", config_filename);;
+        m_log.Emsg("Config", errno, "open config file", config_filename);
         return false;
     }
 
