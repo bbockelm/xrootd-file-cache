@@ -86,7 +86,7 @@ void* TempDirCleanupThread(void*)
 
 Factory::Factory()
     : m_log(0, "XrdFileCache_"),
-      m_temp_directory("/tmp/xrootd-file-cache"),
+      m_temp_directory("/var/tmp/xrootd-file-cache"),
       m_username("nobody"),
       m_cache_expire(172800)
 {
@@ -443,7 +443,7 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
       {
          std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
          std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-         // std::cerr << "check " << np << std::endl;
+	 // std::cerr << "check " << np << std::endl;
          if ( dh->Opendir(np.c_str(), env)  >= 0 )
          {
             CheckDirStatRecurse(dh.get(), np);
@@ -456,8 +456,11 @@ void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
                m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
                m_output_fs->Unlink(np.c_str());
             }
-
          }
+	 else
+	 {
+	     m_log.Emsg("CheckDirStatRecurse", "can't access file ", np.c_str());
+	 }
       }
    }
 }
@@ -472,8 +475,11 @@ void Factory::TempDirCleanup()
       // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
       //      not work properly
       std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-      dh->Opendir(m_temp_directory.c_str(), env);
-      CheckDirStatRecurse(dh.get(), m_temp_directory);
+      if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
+         CheckDirStatRecurse(dh.get(), m_temp_directory);
+      else
+         m_log.Emsg("TempDirCleanup", "can't open file cache directory ", m_temp_directory.c_str());
+
       dh->Close();
       sleep(interval);   
    }
