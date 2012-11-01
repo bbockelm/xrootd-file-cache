@@ -59,6 +59,7 @@ private:
     bool ConfigXeq(char *, XrdOucStream &);
     bool xolib(XrdOucStream &);
     bool xdlib(XrdOucStream &);
+    bool xexpire(XrdOucStream &);
 
     bool Decide(std::string &);
 
@@ -75,6 +76,7 @@ private:
     std::string m_username;
     PrefetchWeakPtrMap m_prefetch_map;
     XrdOss *m_output_fs;
+    int m_cache_expire;
     std::vector<Decision*> m_decisionpoints;
 
 };
