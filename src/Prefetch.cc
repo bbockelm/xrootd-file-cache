@@ -27,7 +27,12 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_log(0, "Prefetch_"),
       m_temp_filename("")
 {
-    m_log.logger(log.logger());
+  m_log.logger(log.logger());
+  std::string prefix = "Prefetch";
+  std::string fn;
+  Cache::getFilePathFromURL(m_input.Path(), fn);
+  prefix += "[" +  fn + "]_";
+  m_log.SetPrefix(strdup(prefix.c_str()));
 }
 
 void

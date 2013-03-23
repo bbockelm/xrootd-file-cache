@@ -44,7 +44,11 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
 
         m_cached_file = Factory::GetInstance().GetOss().newFile(Factory::GetInstance().GetUsername().c_str());
         checkDiskCache(io);
-
+	std::string prefix = "XrdFileCache";
+	std::string fn;
+	Cache::getFilePathFromURL(io->Path(), fn);
+        prefix += "[" + fn  + "]_";
+        m_log.SetPrefix(strdup(prefix.c_str()));
         PrefetchPtr prefetch;
         if (!m_read_from_disk)
         {
