@@ -42,13 +42,9 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     {
         m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
 
-        m_cached_file = Factory::GetInstance().GetOss().newFile(Factory::GetInstance().GetUsername().c_str());
+        m_cached_file = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         checkDiskCache(io);
-	std::string prefix = "XrdFileCache";
-	std::string fn;
-	Cache::getFilePathFromURL(io->Path(), fn);
-        prefix += "[" + fn  + "]_";
-        m_log.SetPrefix(strdup(prefix.c_str()));
+
         PrefetchPtr prefetch;
         if (!m_read_from_disk)
         {
@@ -110,9 +106,6 @@ Cache::checkDiskCache(XrdOucCacheIO* io)
    fname = Factory::GetInstance().GetTempDirectory() + fname;
 
    int res =  m_cached_file->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
-   if (res >= 0) {
-      m_log.Emsg("checkDiskCache", "File found on disk. ", io->Path());
+   if (res >= 0)
       m_read_from_disk = true;
-   }
-
 }

@@ -17,6 +17,10 @@
 #include "Prefetch.hh"
 #include "Decision.hh"
 
+namespace 
+{
+static  int max_temp_dir_age = 86400 *2; // e.g. check temp dir every 2 days
+}
 
 using namespace XrdFileCache;
 
@@ -76,6 +80,62 @@ Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
 
 
+void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
+{   
+   char buff[256];
+   XrdOucEnv env;
+   struct stat st;
+   int  rdr;
+   //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
+   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
+   {
+      std::string np = path + "/" + std::string(buff); 
+      if ( strlen(&buff[0]) == 0  )
+      {
+         // std::cout << "Finish read dir. Break loop \n";
+         break;
+      }
+
+
+      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
+      {
+         std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+         std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
+         // std::cerr << "!!!!!! " << np << std::endl;
+         if ( dh->Opendir(np.c_str(), env)  >= 0 )
+         {
+            CheckDirStatRecurse(dh.get(), np);
+         }
+         else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
+         {
+            fh->Fstat(&st);
+            if ( time(0) - st.st_mtime > max_temp_dir_age )
+            {
+               // printf("\n!!!! REMOVING FILE [%s] age --- %d \n", &buff[0], int (time(0) -st.st_mtime));
+               m_output_fs->Unlink(np.c_str());
+            }
+
+         }
+      }
+   }
+}
+
+
+void Factory::TempDirCleanup()
+{
+   XrdOucEnv env;
+   while (1)
+   {   
+      // AMT: I don't know why recreate of XrdOssDF is necessary.
+      //      I think Opendir()/Close() should be enough. 
+      std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+      dh->Opendir(m_temp_directory.c_str(), env);
+      CheckDirStatRecurse(dh.get(), m_temp_directory);
+      dh->Close();
+      sleep(max_temp_dir_age);   
+   }
+}
+
 
 void* TempDirCleanupThread(void*)
 {
@@ -86,9 +146,8 @@ void* TempDirCleanupThread(void*)
 
 Factory::Factory()
     : m_log(0, "XrdFileCache_"),
-      m_temp_directory("/var/tmp/xrootd-file-cache"),
-      m_username("nobody"),
-      m_cache_expire(172800)
+      m_temp_directory("/tmp/xrootd-file-cache"),
+      m_username("nobody")
 {
 }
 
@@ -135,6 +194,7 @@ Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
+
     m_log.logger(logger);
     m_log.Emsg("Config", "Configuring a file cache.");
 
@@ -154,7 +214,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     int fd;
     if ( (fd = open(config_filename, O_RDONLY, 0)) < 0)
     {
-        m_log.Emsg("Config", errno, "open config file", config_filename);
+        m_log.Emsg("Config", errno, "open config file", config_filename);;
         return false;
     }
 
@@ -172,13 +232,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
             retval = false;
             break;
         }
-        if ((strncmp(var, "filecache.", 10) == 0) && (!ConfigXeq(var+10, Config)))
-        {
-            Config.Echo();
-            retval = false;
-            break;
-        }
-        if ((strncmp(var, "pss.", 4) == 0) && (!ConfigXeq(var+4, Config)))
+        if ((strncmp(var, "filecache.", 4) == 0) && (!ConfigXeq(var+4, Config)))
         {
             Config.Echo();
             retval = false;
@@ -223,7 +277,6 @@ bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
 {
     TS_Xeq("osslib",        xolib);
     TS_Xeq("decisionlib" ,  xdlib);
-    TS_Xeq("expiration",    xexpire);
     return true;
 }
 
@@ -298,41 +351,6 @@ Factory::xdlib(XrdOucStream &Config)
        return false;
     }
     m_decisionpoints.push_back(d);
-    return true;
-}
-
-bool
-Factory::xexpire(XrdOucStream &Config)
-{
-    char *val, parms[512];
-    int pl;
-
-    if (!(val = Config.GetWord()) || !val[0])
-    {
-        m_log.Emsg("Config", "cache expiration not specified; removing files older than 2 days.");
-        return false;
-    }
-
-    strcpy(parms, val);
-    pl = strlen(val);
-    *(parms+pl) = ' ';
-    if (!Config.GetRest(parms+pl+1, sizeof(parms)-pl-1))
-    {
-        m_log.Emsg("Config", "exiration parameters too long");
-        return false;
-    }
-
-    if (atoi(val)) {
-       m_cache_expire = atoi(val);
-       //std::stringstream ss;
-       //ss << "Set cache expiration to " << m_cache_expire << " seconds";
-       //m_log.Emsg("Config", ss.str().c_str());
-    }
-    else
-    {
-        m_log.Emsg("Config", "Can't convert parameter ", val, " to seconds");
-    }
-
     return true;
 }
 
@@ -420,67 +438,3 @@ Factory::Decide(std::string &filename)
     return true;
 }
 
-
-
-void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
-{   
-   char buff[256];
-   XrdOucEnv env;
-   struct stat st;
-   int  rdr;
-   //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
-   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
-   {
-      std::string np = path + "/" + std::string(buff); 
-      if ( strlen(&buff[0]) == 0  )
-      {
-         // std::cout << "Finish read dir. Break loop \n";
-         break;
-      }
-
-
-      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
-      {
-         std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-         std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-	 // std::cerr << "check " << np << std::endl;
-         if ( dh->Opendir(np.c_str(), env)  >= 0 )
-         {
-            CheckDirStatRecurse(dh.get(), np);
-         }
-         else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
-         {
-            fh->Fstat(&st);
-            if ( time(0) - st.st_mtime > m_cache_expire )
-            {
-               m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
-               m_output_fs->Unlink(np.c_str());
-            }
-         }
-	 else
-	 {
-	     m_log.Emsg("CheckDirStatRecurse", "can't access file ", np.c_str());
-	 }
-      }
-   }
-}
-
-
-void Factory::TempDirCleanup()
-{
-   XrdOucEnv env;
-   int interval = (m_cache_expire > 7200) ? 7200 : m_cache_expire;
-   while (1)
-   {   
-      // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
-      //      not work properly
-      std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-      if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
-         CheckDirStatRecurse(dh.get(), m_temp_directory);
-      else
-         m_log.Emsg("TempDirCleanup", "can't open file cache directory ", m_temp_directory.c_str());
-
-      dh->Close();
-      sleep(interval);   
-   }
-}

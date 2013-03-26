@@ -27,12 +27,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_log(0, "Prefetch_"),
       m_temp_filename("")
 {
-  m_log.logger(log.logger());
-  std::string prefix = "Prefetch";
-  std::string fn;
-  Cache::getFilePathFromURL(m_input.Path(), fn);
-  prefix += "[" +  fn + "]_";
-  m_log.SetPrefix(strdup(prefix.c_str()));
+    m_log.logger(log.logger());
 }
 
 void
@@ -131,7 +126,7 @@ bool
 Prefetch::GetTempFilename(std::string &result)
 { 
     Cache::getFilePathFromURL(m_input.Path(), result);
-    const std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
+    std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
     result = tmp_directory + result + ".tmp";
 
     return true;
