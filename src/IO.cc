@@ -81,7 +81,6 @@ int IO::Read (char *buff, long long off, int size)
 #if defined(HAVE_READV)
 ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
 {
-    printf("======== IO::ReadV \n");
     ssize_t bytes_read = 0;
     size_t missing = 0;
     XrdSfsReadV missingReadV[READV_MAXCHUNKS];
@@ -89,9 +88,12 @@ ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
     {
         XrdSfsXferSize size = readV[i].size;
         char * buff = readV[i].data;
-        XrdSfsFileOffset off = readV[i].offset;
+        XrdSfsFileOffset off = readV[i].offset;\
+        std::stringstream ss; ss << "ReadV " << off << "@" << size;
+        m_log.Emsg("IO", ss.str().c_str());
         if (m_prefetch)
-        {
+        { 
+       	  m_log.Emsg("IO","Trying to read from prefetch.");
            ssize_t retval = m_prefetch->Read(buff, off, size);
            if ((retval > 0) && (retval == size))
            {
@@ -111,7 +113,8 @@ ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
         }
     }
     if (missing)
-    {
+    { 
+        m_log.Emsg("IO","ReadV missing.");
         ssize_t retval = m_io.ReadV(missingReadV, missing);
         if (retval >= 0)
         {
