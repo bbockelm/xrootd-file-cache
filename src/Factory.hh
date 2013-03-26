@@ -43,7 +43,7 @@ public:
     std::string &GetTempDirectory() {return m_temp_directory;}
     XrdOss* &GetOss() {return m_output_fs;}
 
-    void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
+    void TempDirCleanup();
     static Factory &GetInstance();
 
 protected:
@@ -61,6 +61,8 @@ private:
     bool xdlib(XrdOucStream &);
 
     bool Decide(std::string &);
+
+    void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
 
     static XrdSysMutex m_factory_mutex;
     static Factory * m_factory;
