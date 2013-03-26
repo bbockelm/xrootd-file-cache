@@ -1,5 +1,5 @@
 #include "XrdSys/XrdSysPthread.hh"
-#include "XrdOss/XrdOssApi.hh"
+#include "XrdOss/XrdOss.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 
 #include <fcntl.h>

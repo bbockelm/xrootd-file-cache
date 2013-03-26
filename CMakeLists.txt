@@ -28,6 +28,10 @@ if (HAVE_READV)
   add_definitions(-DHAVE_READV)
 endif()
 
+if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
+  SET(CMAKE_INSTALL_LIBDIR "lib")
+endif()
+
 include_directories ("${PROJECT_SOURCE_DIR}")
 add_subdirectory( src )
 add_subdirectory( test/xrdfragcp )

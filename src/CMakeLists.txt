@@ -5,3 +5,15 @@ add_library (XrdFileCacheAllowAlways MODULE AllowDecision.cc)
 
 target_link_libraries(XrdFileCache ${XROOTD_UTILS} ${XROOTD_SERVER})
 
+install(
+  TARGETS XrdFileCache
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} )
+
+install(
+  TARGETS XrdFileCacheAllowAlways
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} )
+
+install(
+  FILES Decision.hh
+  DESTINATION include )
+
