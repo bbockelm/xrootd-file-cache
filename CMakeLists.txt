@@ -15,6 +15,7 @@ if( CMAKE_COMPILER_IS_GNUCC )
 endif()
 
 INCLUDE (CheckCXXSourceCompiles)
+SET(CMAKE_REQUIRED_INCLUDES ${XROOTD_INCLUDES})
 check_cxx_source_compiles("
 #include <XrdOuc/XrdOucCache.hh>
 int main() {
