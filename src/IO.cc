@@ -7,7 +7,7 @@
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
-
+#include "XrdSfs/XrdSfsInterface.hh"
 using namespace XrdFileCache;
 
 IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pread, XrdSysError &log)
@@ -79,13 +79,13 @@ int IO::Read (char *buff, long long off, int size)
  * Perform a readv from the cache
  */
 #if defined(HAVE_READV)
-ssize_t IO::ReadV (const XrdSfsReadV *readV, size_t n)
-{
+ssize_t IO::ReadV (const XrdOucIOVec *readV, size_t n)
+{ 
     printf("======== IO::ReadV \n");
     ssize_t bytes_read = 0;
     size_t missing = 0;
-    XrdSfsReadV missingReadV[READV_MAXCHUNKS];
-    for (int i=0; i<n; i++)
+    XrdOucIOVec missingReadV[READV_MAXCHUNKS];
+    for (size_t i=0; i<n; i++)
     {
         XrdSfsXferSize size = readV[i].size;
         char * buff = readV[i].data;

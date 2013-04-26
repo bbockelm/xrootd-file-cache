@@ -38,7 +38,7 @@ public:
     int Read (char  *Buffer, long long  Offset, int  Length);
 
 #if defined(HAVE_READV)
-    virtual ssize_t ReadV (const XrdSfsReadV *readV, size_t n);
+    virtual ssize_t ReadV (const XrdOucIOVec *readV, size_t n);
 #endif
 
     int Sync() {return 0;}

@@ -17,9 +17,9 @@ endif()
 INCLUDE (CheckCXXSourceCompiles)
 SET(CMAKE_REQUIRED_INCLUDES ${XROOTD_INCLUDES})
 check_cxx_source_compiles("
-#include <XrdOuc/XrdOucCache.hh>
+#include <XrdOuc/X r d O u c I O V e c . h h>
 int main() {
-    XrdSfsReadV readV;
+    XrdOucIOVec readV;
     return 0;
 }
 " HAVE_READV)
