@@ -17,16 +17,14 @@ endif()
 INCLUDE (CheckCXXSourceCompiles)
 SET(CMAKE_REQUIRED_INCLUDES ${XROOTD_INCLUDES})
 check_cxx_source_compiles("
-#include <XrdOuc/X r d O u c I O V e c . h h>
+#include <XrdOuc/XrdOucIOVec.hh>
 int main() {
     XrdOucIOVec readV;
     return 0;
 }
 " HAVE_READV)
 
-if (HAVE_READV)
   add_definitions(-DHAVE_READV)
-endif()
 
 if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
   SET(CMAKE_INSTALL_LIBDIR "lib")
