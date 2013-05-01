@@ -79,10 +79,7 @@ int main(int argc, char *argv[])
 
    c->ReadV(&buf[0], offsets, lengths, numCopies);
 
-   while(1)
-   {
-      sleep(1);
-   }
+   
 
    return 0;
 }
