@@ -8,6 +8,15 @@ FIND_PATH(XROOTD_INCLUDES XrdVersion.hh
   PATH_SUFFIXES include/xrootd
   PATHS /opt/xrootd
 )
+FIND_PATH(XROOTD_INCLUDES_PRIVATE XrdOuc/XrdOucIOVec.hh
+  HINTS
+  ${XROOTD_DIR}
+  $ENV{XROOTD_DIR}
+  /usr
+  /opt/xrootd/
+  PATH_SUFFIXES include/xrootd/private
+  PATHS /opt/xrootd
+)
 
 FIND_LIBRARY(XROOTD_UTILS XrdUtils
   HINTS
