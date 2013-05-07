@@ -129,7 +129,7 @@ bool
 Prefetch::GetTempFilename(std::string &result)
 { 
     Cache::getFilePathFromURL(m_input.Path(), result);
-    std::string &tmp_directory = Factory::GetInstance().GetTempDirectory();
+    std::string tmp_directory = Factory::GetInstance().GetTempDirectory();
     result = tmp_directory + result + ".tmp";
 
     return true;

@@ -39,9 +39,9 @@ public:
 
     virtual XrdOucCache *Create(Parms &, XrdOucCacheIO::aprParms *aprP=0);
 
-    std::string &GetUsername() {return m_username;}
-    std::string &GetTempDirectory() {return m_temp_directory;}
-    XrdOss* &GetOss() {return m_output_fs;}
+    const std::string &GetUsername() const {return m_username;}
+    const std::string GetTempDirectory() const {return m_temp_directory;}
+    XrdOss*  GetOss() const {return m_output_fs;}
 
     void TempDirCleanup();
     static Factory &GetInstance();
@@ -59,6 +59,7 @@ private:
     bool ConfigXeq(char *, XrdOucStream &);
     bool xolib(XrdOucStream &);
     bool xdlib(XrdOucStream &);
+    bool xexpire(XrdOucStream &);
 
     bool Decide(std::string &);
 
@@ -75,6 +76,7 @@ private:
     std::string m_username;
     PrefetchWeakPtrMap m_prefetch_map;
     XrdOss *m_output_fs;
+    int m_cache_expire;
     std::vector<Decision*> m_decisionpoints;
 
 };
