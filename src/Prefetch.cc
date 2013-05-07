@@ -28,9 +28,6 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_temp_filename("")
 {
     m_log.logger(log.logger());
-#if defined(HAVE_READV)
-    printf("ffffffffffffffffffffff\n");
-#endif
 }
 
 void
