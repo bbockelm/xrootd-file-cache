@@ -195,7 +195,10 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 
     m_log.Emsg("Config", "Cache user name: ", m_username.c_str());
     m_log.Emsg("Config", "Cache temporary directory: ", m_temp_directory.c_str());
-
+    {
+        std::stringstream cem; cem<< "Cache expire if not access for :" << m_cache_expire << " [s]";
+        m_log.Emsg("Config", cem.str().c_str());
+    }
     if (retval)
     {
         XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str(), NULL);
@@ -217,7 +220,6 @@ bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
 {
     TS_Xeq("osslib",        xolib);
     TS_Xeq("decisionlib" ,  xdlib);
-    TS_Xeq("expiration",    xexpire);
     return true;
 }
 
@@ -296,41 +298,6 @@ Factory::xdlib(XrdOucStream &Config)
 }
 
 bool
-Factory::xexpire(XrdOucStream &Config)
-{
-    char *val, parms[512];
-    int pl;
-
-    if (!(val = Config.GetWord()) || !val[0])
-    {
-        m_log.Emsg("Config", "cache expiration not specified; removing files older than 2 days.");
-        return false;
-    }
-
-    strcpy(parms, val);
-    pl = strlen(val);
-    *(parms+pl) = ' ';
-    if (!Config.GetRest(parms+pl+1, sizeof(parms)-pl-1))
-    {
-        m_log.Emsg("Config", "exiration parameters too long");
-        return false;
-    }
-
-    if (atoi(val)) {
-       m_cache_expire = atoi(val);
-       //std::stringstream ss;
-       //ss << "Set cache expiration to " << m_cache_expire << " seconds";
-       //m_log.Emsg("Config", ss.str().c_str());
-    }
-    else
-    {
-        m_log.Emsg("Config", "Can't convert parameter ", val, " to seconds");
-    }
-
-    return true;
-}
-
-bool
 Factory::ConfigParameters(const char * parameters)
 {
     if (!parameters || (!(*parameters)))
@@ -356,6 +323,11 @@ Factory::ConfigParameters(const char * parameters)
             m_temp_directory = part.c_str();
             //std::string msg = "Set cache directory to " +  part;
             //m_log.Emsg("Config",  msg.c_str());           
+        }
+        else if  ( part == "-expire" )
+        {
+            getline(is, part, ' ');
+            m_cache_expire = atoi(part.c_str());
         }
     }
     return true;
