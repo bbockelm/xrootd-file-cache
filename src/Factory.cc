@@ -172,12 +172,6 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
             retval = false;
             break;
         }
-        if ((strncmp(var, "filecache.", 10) == 0) && (!ConfigXeq(var+10, Config)))
-        {
-            Config.Echo();
-            retval = false;
-            break;
-        }
         if ((strncmp(var, "pss.", 4) == 0) && (!ConfigXeq(var+4, Config)))
         {
             Config.Echo();
@@ -345,32 +339,25 @@ Factory::ConfigParameters(const char * parameters)
         return true;
     }
 
-    XrdOucEnv myEnv;
-    XrdOucStream Config(&m_log, getenv("XRDINSTANCE"), &myEnv, "=====> ");
-    Config.Put(parameters);
-
-    char * val;
-    while ((val = Config.GetWord()))
+    istringstream is(parameters);
+    string part;
+    while (getline(is, part, ' '))
     {
-        if (!strcmp("-user", val))
-        {
-            if (!(val = Config.GetWord()))
-            {
-                m_log.Emsg("Config", "No username specified");
-                return false;
-            }
-            m_username = val;
+        cout << part << endl;
+        if ( part == "-user" ) {
+            getline(is, part, ' ');
+            m_username = part.c_str();
+            //std::string msg = "Set user to " +  part;
+            //m_log.Emsg("Config",  msg.c_str());
         }
-        else if (!strcmp("-temp", val))
+        else if  ( part == "-tmp" )
         {
-            if (!(val = Config.GetWord()))
-            {
-                m_log.Emsg("Config", "No temporary directory specified.");
-                return false;
-            }
+            getline(is, part, ' ');
+            m_temp_directory = part.c_str();
+            //std::string msg = "Set cache directory to " +  part;
+            //m_log.Emsg("Config",  msg.c_str());           
         }
     }
-
     return true;
 }
 
