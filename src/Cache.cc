@@ -3,12 +3,14 @@
 #include "XrdOuc/XrdOucEnv.hh"
 
 #include <fcntl.h>
+#include <sstream>
 
 
 #include "IO.hh"
 #include "Cache.hh"
 #include "Factory.hh"
 #include "Prefetch.hh"
+#include "Context.hh"
 
 using namespace XrdFileCache;
 
@@ -72,9 +74,13 @@ Cache::isAttached()
 
 void
 Cache::Detach(XrdOucCacheIO* io)
-{
+{ 
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
+
+    std::stringstream ss; ss << m_attached << " " << io->Path();
+    m_log.Emsg("Detach", "io object ", ss.str().c_str() );
+
     delete io;
 }
 

@@ -1,6 +1,7 @@
 #include "IO.hh"
 #include "Cache.hh"
 #include "Prefetch.hh"
+#include "Context.hh"
 
 #include <sstream>
 #include <stdio.h>
@@ -36,26 +37,26 @@ IO::Detach()
 int IO::Read (char *buff, long long off, int size)
 {
     std::stringstream ss; ss << "Read " << off << "@" << size;
-    m_log.Emsg("IO", ss.str().c_str());
+    if (Dbg > 1) m_log.Emsg("IO", ss.str().c_str());
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
 
     if (m_cache.readFromDisk())
     {
-       m_log.Emsg("IO", ">>> read from disk");
+       if (Dbg > 1) m_log.Emsg("IO", ">>> read from disk");
        retval = m_cache.getCachedFile()->Read(buff, off, size);
     }
     else if (m_prefetch)
     {
        if (m_prefetch->hasCompletedSuccessfully())
        {
-          m_log.Emsg("IO", ">>> open file from disk and read from it");
+          if (Dbg > 1) m_log.Emsg("IO", ">>> open file from disk and read from it");
           m_cache.checkDiskCache(&m_io);
           retval = m_cache.getCachedFile()->Read(buff, off, size);
        }
        else
        {
-          m_log.Emsg("IO", ">>> read from Prefetch");
+          if (Dbg > 1) m_log.Emsg("IO", ">>> read from Prefetch");
           retval = m_prefetch->Read(buff, off, size);     
        }
     }
@@ -82,7 +83,7 @@ int IO::Read (char *buff, long long off, int size)
 
 int IO::ReadV (const XrdOucIOVec *readV, int n)
 {
-    printf("======== IO::ReadV \n");
+    if (Dbg > 1) m_log.Emsg("IO", "ReadV");
     ssize_t bytes_read = 0;
     size_t missing = 0;
     XrdOucIOVec missingReadV[READV_MAXCHUNKS];

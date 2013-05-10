@@ -17,6 +17,8 @@
 #include "Prefetch.hh"
 #include "Decision.hh"
 
+#include "Context.hh"
+
 
 using namespace XrdFileCache;
 
@@ -90,6 +92,7 @@ Factory::Factory()
       m_username("nobody"),
       m_cache_expire(172800)
 {
+   Dbg = 1;
 }
 
 extern "C"
@@ -328,6 +331,11 @@ Factory::ConfigParameters(const char * parameters)
         {
             getline(is, part, ' ');
             m_cache_expire = atoi(part.c_str());
+        }
+        else if  ( part == "-debug" )
+        {
+            getline(is, part, ' ');
+            Dbg = atoi(part.c_str());
         }
     }
     return true;

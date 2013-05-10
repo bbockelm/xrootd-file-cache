@@ -7,6 +7,7 @@
 #include "Prefetch.hh"
 #include "Factory.hh"
 #include "Cache.hh"
+#include "Context.hh"
 
 #include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -44,7 +45,7 @@ Prefetch::Run()
     if (!Open())
         return;
 
-    m_log.Emsg("Run", "Beginning prefetch of ", m_input.Path());
+    if (Dbg) m_log.Emsg("Run", "Beginning prefetch of ", m_input.Path());
     std::vector<char> buff;
     buff.reserve(m_buffer_size);
 
@@ -74,20 +75,20 @@ Prefetch::Run()
         {
             std::stringstream ss;
             ss << "Prefetched " << (m_offset/(1024*1024)) << " MB";
-            m_log.Emsg("Fetching", ss.str().c_str());
+            if (Dbg > 1) m_log.Emsg("Fetching", ss.str().c_str());
         }
         // Note we don't lock read-access, as this will only ever go from 0 to 1
         // Reading during a partial write is OK in this case.
         if (m_stop)
         {
-            m_log.Emsg("Read", "Stopping for a clean close");
+            if (Dbg) m_log.Emsg("Read", "Stopping for a clean close");
             retval = -EINTR;
             break;
         }
     }
 
     if (retval < 0) {
-        m_log.Emsg("Read", retval, "Failure prefetching file");
+        if (Dbg)  m_log.Emsg("Read", retval, "Failure prefetching file");
         m_stop = true;
         Fail(retval != -EINTR);
     }
@@ -101,18 +102,18 @@ Prefetch::Join()
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
     {
-        m_log.Emsg("Join", "Prefetch is already finalized");
+        if (Dbg) m_log.Emsg("Join", "Prefetch is already finalized");
         return;
     }
     else if (m_started)
     {
-        m_log.Emsg("Join", "Waiting until prefetch finishes");
+       if (Dbg)  m_log.Emsg("Join", "Waiting until prefetch finishes");
         m_cond.Wait();
-        m_log.Emsg("Join", "Prefetch finished");
+        if (Dbg) m_log.Emsg("Join", "Prefetch finished");
     }
     else
     {
-        m_log.Emsg("Join", "Prefetch not started - running it before Joining");
+       if (Dbg) m_log.Emsg("Join", "Prefetch not started - running it before Joining");
         monitor.UnLock();
         // Because we have unlocked the mutex, someone else may be
         // able to race us and Run - causing us to exit early.
@@ -150,7 +151,7 @@ Prefetch::Open()
         m_log.Emsg("Open", "Failed to create temporary filename for ", m_input.Path());
         return false;
     }
-    m_log.Emsg("Open", ("Opening temp file " + temp_path).c_str(), " to prefetch file ", m_input.Path());
+    if (Dbg) m_log.Emsg("Open", ("Opening temp file " + temp_path).c_str(), " to prefetch file ", m_input.Path());
 
     // Create the file itself.
     XrdOucEnv myEnv;
@@ -184,7 +185,7 @@ Prefetch::Close()
 
     if (m_output)
     {
-        m_log.Emsg("Close", "Close m_output");
+        if (Dbg) m_log.Emsg("Close", "Close m_output");
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -193,7 +194,7 @@ Prefetch::Close()
     // final file has same name , except of missing '.tmp' extension
     std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
 
-    m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
+    if (Dbg) m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
     m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
 
     m_cond.Broadcast();
@@ -213,7 +214,7 @@ Prefetch::Fail(bool cleanup)
    
     if (m_output)
     {
-       m_log.Emsg("Fail", "Close m_output");
+        if (Dbg) m_log.Emsg("Fail", "Close m_output");
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -229,7 +230,7 @@ Prefetch::Fail(bool cleanup)
 
 Prefetch::~Prefetch()
 {
-    m_log.Emsg("Destructor", "Destroying Prefetch Object");
+    if (Dbg) m_log.Emsg("Destructor", "Destroying Prefetch Object");
     Join();
 }
 
@@ -247,17 +248,16 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     ss << "offset = " << offset;
 
 
-
     off_t prefetch_offset = GetOffset();
     if (prefetch_offset < offset)
     {
-        m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
+        if (Dbg > 1) m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
         return 0;
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
     {
        ss << ", size  = " << size;
-       m_log.Emsg("Read", "read complete size", ss.str().c_str());
+       if (Dbg > 1) m_log.Emsg("Read", "read complete size", ss.str().c_str());
        return m_output->Read(buff, offset, size);
     }
     else
@@ -265,7 +265,7 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
        size_t to_read = offset + size - prefetch_offset;
        ss << ", to_read  = " << to_read;
 
-       m_log.Emsg("Read", "read partial read ", ss.str().c_str());
+       if (Dbg > 1) m_log.Emsg("Read", "read partial read ", ss.str().c_str());
        return m_output->Read(buff, offset, to_read);
     }
 }

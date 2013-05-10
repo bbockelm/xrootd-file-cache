@@ -1,6 +1,6 @@
 
 include_directories( ${XROOTD_INCLUDES} ${XROOTD_INCLUDES_PRIVATE} )
-add_library (XrdFileCache MODULE IO.cc Factory.cc Cache.cc Prefetch.cc)
+add_library (XrdFileCache MODULE IO.cc Factory.cc Cache.cc Prefetch.cc Context.cc)
 add_library (XrdFileCacheAllowAlways MODULE AllowDecision.cc)
 
 target_link_libraries(XrdFileCache ${XROOTD_UTILS} ${XROOTD_SERVER})
