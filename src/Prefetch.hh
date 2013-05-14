@@ -30,7 +30,7 @@ protected:
     ssize_t Read(char * buff, off_t offset, size_t size);
     void CloseCleanly();
   
-    bool hasCompletedSuccessfully() const;
+   //    bool hasCompletedSuccessfully() const;
 
 private:
 

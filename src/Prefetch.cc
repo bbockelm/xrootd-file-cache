@@ -11,7 +11,6 @@
 
 #include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
-
 using namespace XrdFileCache;
 
 const size_t Prefetch::m_buffer_size = 64*1024;
@@ -81,14 +80,14 @@ Prefetch::Run()
         // Reading during a partial write is OK in this case.
         if (m_stop)
         {
-            if (Dbg) m_log.Emsg("Read", "Stopping for a clean close");
+            if (Dbg) m_log.Emsg("Run", "Stopping for a clean close");
             retval = -EINTR;
             break;
         }
     }
 
     if (retval < 0) {
-        if (Dbg)  m_log.Emsg("Read", retval, "Failure prefetching file");
+        if (Dbg)  m_log.Emsg("Run", retval, "Failure prefetching file");
         m_stop = true;
         Fail(retval != -EINTR);
     }
@@ -99,6 +98,8 @@ Prefetch::Run()
 void
 Prefetch::Join()
 {
+    if (Dbg) m_log.Emsg("Join", "Going to lock ...");
+
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
     {
@@ -189,13 +190,12 @@ Prefetch::Close()
         m_output->Close();
         delete m_output;
         m_output = NULL;
+
+        // final file has same name , except of missing '.tmp' extension
+        std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
+        if (Dbg) m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
+        m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
     }
-
-    // final file has same name , except of missing '.tmp' extension
-    std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
-
-    if (Dbg) m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
-    m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
 
     m_cond.Broadcast();
     m_finalized = true;
@@ -206,6 +206,9 @@ Prefetch::Close()
 bool
 Prefetch::Fail(bool cleanup)
 {
+   // Prefetch did not competed download.
+   // Remove cached file.
+
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
         return false;
@@ -271,9 +274,10 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
 }
 
 
-
+/*
 bool
 Prefetch::hasCompletedSuccessfully() const
 {
    return m_finalized == true && m_stop == false;
 }
+*/

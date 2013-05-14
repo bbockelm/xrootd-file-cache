@@ -28,9 +28,7 @@ XrdSysMutex Cache::m_cache_mutex;
 Cache::Cache(XrdOucCacheStats & stats, XrdSysError & log)
     : m_attached(0),
       m_log(log),
-      m_stats(stats),
-      m_cached_file(0),
-      m_read_from_disk(false)
+      m_stats(stats)
 {
 }
 
@@ -44,19 +42,34 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     {
         m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
 
-        m_cached_file = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
-        checkDiskCache(io);
+      
+        bool havePrefetch = Factory::GetInstance().HavePrefetchForIO(*io);
 
-        PrefetchPtr prefetch;
-        if (!m_read_from_disk)
+        // check file is in already on disk
+        // AMT todo:: resolve ovnership of XrdOssDF
+        XrdOssDF* preExistDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+        if (!havePrefetch)
         {
-           prefetch = Factory::GetInstance().GetPrefetch(*io);
-           pthread_t tid;
-           XrdSysThread::Run(&tid, PrefetchRunner, (void *)(prefetch.get()), 0, "XrdFileCache Prefetcher");
+            XrdOucEnv myEnv;
+            std::string fname;
+            getFilePathFromURL(io->Path(), fname);
+            fname = Factory::GetInstance().GetTempDirectory() + fname;
+            int res = preExistDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
+            if (res >= 0)
+                m_log.Emsg("Attach", "File already cached on disk.");
         }
 
+        // use prefetch if file is not yet on disk
+        PrefetchPtr prefetch;
+        if (preExistDF->getFD() <= 0)
+        {
+            prefetch = Factory::GetInstance().GetPrefetch(*io);
+	    // AMT:: shouldn't we check if thread is already running
+            pthread_t tid;
+            XrdSysThread::Run(&tid, PrefetchRunner, (void *)(prefetch.get()), 0, "XrdFileCache Prefetcher");
+        }
 
-        return new IO(*io, m_stats, *this, prefetch, m_log);
+        return new IO(*io, m_stats, *this,preExistDF, prefetch,  m_log);
     }
     else
     {
@@ -68,6 +81,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
 int 
 Cache::isAttached()
 {
+   // AMT:: where is this used ??
     XrdSysMutexHelper lock(&m_io_mutex);
     return m_attached;
 }
@@ -79,7 +93,7 @@ Cache::Detach(XrdOucCacheIO* io)
     m_attached--;
 
     std::stringstream ss; ss << m_attached << " " << io->Path();
-    m_log.Emsg("Detach", "io object ", ss.str().c_str() );
+    m_log.Emsg("Detach", "deleting io object ", ss.str().c_str() );
 
     delete io;
 }
@@ -105,13 +119,5 @@ Cache::getFilePathFromURL(const char* url, std::string &result)
 void
 Cache::checkDiskCache(XrdOucCacheIO* io)
 {
-   XrdOucEnv myEnv;
-
-   std::string fname;
-   getFilePathFromURL(io->Path(), fname);
-   fname = Factory::GetInstance().GetTempDirectory() + fname;
-
-   int res =  m_cached_file->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
-   if (res >= 0)
-      m_read_from_disk = true;
+  
 }

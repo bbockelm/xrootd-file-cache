@@ -372,6 +372,13 @@ Factory::GetPrefetch(XrdOucCacheIO & io)
 }
 
 bool
+Factory::HavePrefetchForIO(XrdOucCacheIO & io)
+{
+   PrefetchWeakPtrMap::const_iterator it = m_prefetch_map.find(io.Path());
+    return it != m_prefetch_map.end();
+}
+
+bool
 Factory::Decide(std::string &filename)
 {
     std::vector<Decision*>::const_iterator it;

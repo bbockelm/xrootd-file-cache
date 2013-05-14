@@ -11,9 +11,10 @@
 #include "XrdSfs/XrdSfsInterface.hh"
 using namespace XrdFileCache;
 
-IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pread, XrdSysError &log)
+IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, XrdOssDF* preExistDF, PrefetchPtr pread, XrdSysError &log)
     : m_io(io),
       m_stats(stats),
+      m_preExistDF(preExistDF),
       m_prefetch(pread),
       m_cache(cache),
       m_log(log)
@@ -22,6 +23,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, PrefetchPtr pr
 XrdOucCacheIO *
 IO::Detach()
 {
+   if (Dbg > 1) m_log.Emsg("IO", "Detach ", m_io.Path());
     XrdOucCacheIO * io = &m_io;
     if (m_prefetch.get())
     {
@@ -41,24 +43,16 @@ int IO::Read (char *buff, long long off, int size)
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
 
-    if (m_cache.readFromDisk())
+    if (m_prefetch.get())
     {
-       if (Dbg > 1) m_log.Emsg("IO", ">>> read from disk");
-       retval = m_cache.getCachedFile()->Read(buff, off, size);
+        if (Dbg > 1) m_log.Emsg("IO", ">>> trying to read from Prefetch");
+        retval = m_prefetch->Read(buff, off, size);     
     }
-    else if (m_prefetch)
+    else
     {
-       if (m_prefetch->hasCompletedSuccessfully())
-       {
-          if (Dbg > 1) m_log.Emsg("IO", ">>> open file from disk and read from it");
-          m_cache.checkDiskCache(&m_io);
-          retval = m_cache.getCachedFile()->Read(buff, off, size);
-       }
-       else
-       {
-          if (Dbg > 1) m_log.Emsg("IO", ">>> read from Prefetch");
-          retval = m_prefetch->Read(buff, off, size);     
-       }
+        if (Dbg > 1) m_log.Emsg("IO", ">>> read from disk");
+        retval = m_preExistDF->Read(buff, off, size);
+
     }
 
     if (retval > 0)
@@ -68,11 +62,16 @@ int IO::Read (char *buff, long long off, int size)
        size -= retval;
     }
 
+    std::stringstream se;
+    se << "Read exit with " << retval;
+    if (Dbg > 1) m_log.Emsg("IO", se.str().c_str());
 
     if ((size > 0) && ((retval = m_io.Read(buff, off, size)) > 0))
     {
             bytes_read += retval;
     }
+
+    printf("IO::Read exit %d \n", retval);
     return (retval < 0) ? retval : bytes_read;
 }
 
@@ -92,7 +91,7 @@ int IO::ReadV (const XrdOucIOVec *readV, int n)
         XrdSfsXferSize size = readV[i].size;
         char * buff = readV[i].data;
         XrdSfsFileOffset off = readV[i].offset;
-        if (m_prefetch)
+        if (m_prefetch.get())
         {
            ssize_t retval = m_prefetch->Read(buff, off, size);
            if ((retval > 0) && (retval == size))
@@ -102,6 +101,7 @@ int IO::ReadV (const XrdOucIOVec *readV, int n)
                continue;
            }
         }
+        // AMT todo: check read from disc
         missingReadV[missing].size = size;
         missingReadV[missing].data = buff;
         missingReadV[missing].offset = off;

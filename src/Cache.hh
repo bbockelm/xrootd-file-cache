@@ -13,7 +13,6 @@
 
 #include "XrdFileCacheFwd.hh"
 
-class XrdOssDF;
 
 namespace XrdFileCache {
 
@@ -37,8 +36,6 @@ protected:
     Cache(XrdOucCacheStats&, XrdSysError&);
 
     void checkDiskCache(XrdOucCacheIO*);
-    XrdOssDF* getCachedFile() { return m_cached_file; }
-    bool readFromDisk() const { return m_read_from_disk; }
 
 private:
 
@@ -52,11 +49,6 @@ private:
 
     XrdSysError & m_log;
     XrdOucCacheStats & m_stats;
-
-   XrdOssDF* m_cached_file;
-   bool      m_read_from_disk;
-
-
 };
 
 }

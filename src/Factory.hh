@@ -49,7 +49,9 @@ public:
 protected:
 
     PrefetchPtr GetPrefetch(XrdOucCacheIO &);
+    bool havePrefetchForIO(XrdOucCacheIO & io);
     void Detach(PrefetchPtr);
+    bool HavePrefetchForIO(XrdOucCacheIO & io);
 
 private:
 
