@@ -10,7 +10,6 @@
 #include <XrdOuc/XrdOucCache.hh>
 
 #include "XrdFileCacheFwd.hh"
-class XrdClient;
 
 namespace XrdFileCache {
 
@@ -42,7 +41,7 @@ private:
    
     XrdOucCacheIO & m_input;
 
-   XrdClient* m_xrdClient;
+    XrdClient* m_xrdClient;
 
     off_t m_offset;
     static const size_t m_buffer_size;

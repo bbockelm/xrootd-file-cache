@@ -33,10 +33,11 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
 
     m_xrdClient = new XrdClient(m_input.Client()->fInitialUrl.c_str());
 
-    if (Dbg) m_log.Emsg("Constructor", " create client initial URL ", m_input.Client()->fInitialUrl.c_str());
     if ( ! m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
     {
-        m_log.Emsg("Constructor", "Client error ", m_input.Client()->fInitialUrl.c_str());
+        //  if (Dbg) m_log.Emsg("Constructor", " create client initial URL ", m_input.Client()->fInitialUrl.c_str());
+        //  m_log.Emsg("Constructor", "Client error ", m_input.Client()->fInitialUrl.c_str());
+        m_log.Emsg("Constructor", "Client error ", m_input.Path());
     }
 }
 
