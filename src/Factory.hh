@@ -48,10 +48,8 @@ public:
 
 protected:
 
-    PrefetchPtr GetPrefetch(XrdOucCacheIO &);
-    bool havePrefetchForIO(XrdOucCacheIO & io);
-    void Detach(PrefetchPtr);
-    bool HavePrefetchForIO(XrdOucCacheIO & io);
+    FilePtr GetXfcFile(XrdOucCacheIO &);
+    void Detach(FilePtr);
 
 private:
 
@@ -76,7 +74,7 @@ private:
     std::string m_config_filename;
     std::string m_temp_directory;
     std::string m_username;
-    PrefetchWeakPtrMap m_prefetch_map;
+    FileWeakPtrMap m_file_map;
     XrdOss *m_output_fs;
     int m_cache_expire;
     std::vector<Decision*> m_decisionpoints;

@@ -9,6 +9,7 @@
 #include "Cache.hh"
 #include "Context.hh"
 
+#include <XrdClient/XrdClient.hh>
 #include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 using namespace XrdFileCache;
@@ -19,6 +20,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
     : m_output_fs(outputFS),
       m_output(NULL),
       m_input(inputIO),
+      m_xrdClient(0),
       m_offset(0),
       m_started(false),
       m_finalized(false),
@@ -28,6 +30,14 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_temp_filename("")
 {
     m_log.logger(log.logger());
+
+    m_xrdClient = new XrdClient(m_input.Client()->fInitialUrl.c_str());
+
+    if (Dbg) m_log.Emsg("Constructor", " create client initial URL ", m_input.Client()->fInitialUrl.c_str());
+    if ( ! m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
+    {
+        m_log.Emsg("Constructor", "Client error ", m_input.Client()->fInitialUrl.c_str());
+    }
 }
 
 void
@@ -49,7 +59,9 @@ Prefetch::Run()
     buff.reserve(m_buffer_size);
 
     int retval = 0;
-    while (0 != (retval = m_input.Read(&buff[0], m_offset, m_buffer_size)))
+    // AMT 
+    //while (0 != (retval = m_input.Read(&buff[0], m_offset, m_buffer_size)))
+    while (0 != (retval = m_xrdClient->Read(&buff[0], m_offset, m_buffer_size)))
     {
         if ((retval < 0) && (retval != -EINTR))
         {
@@ -129,7 +141,7 @@ Prefetch::GetTempFilename(std::string &result)
 { 
     Cache::getFilePathFromURL(m_input.Path(), result);
     std::string tmp_directory = Factory::GetInstance().GetTempDirectory();
-    result = tmp_directory + result + ".tmp";
+    result = tmp_directory + result;
 
     return true;
 }
@@ -166,7 +178,7 @@ Prefetch::Open()
 
     // If the file is pre-existing, pick up from where we left off.
     struct stat fileStat;
-   m_temp_filename = temp_path;
+    m_temp_filename = temp_path;
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;
@@ -191,10 +203,16 @@ Prefetch::Close()
         delete m_output;
         m_output = NULL;
 
-        // final file has same name , except of missing '.tmp' extension
-        std::string finalName = m_temp_filename.substr(0, m_temp_filename.size()-4);
-        if (Dbg) m_log.Emsg("Close", m_temp_filename.c_str(), "  rename " ,finalName.c_str());
-        m_output_fs.Rename(m_temp_filename.c_str(), finalName.c_str());
+        // AMT create a file with cinfo extension, to mark file has completed
+        // 
+        if (m_started && !m_stop)
+        {
+            std::stringstream ss;
+            if (Dbg) m_log.Emsg("Close create info file", ss.str().c_str());
+            ss << "touch " <<  m_temp_filename << ".cinfo";
+            system(ss.str().c_str());
+        }
+
     }
 
     m_cond.Broadcast();
@@ -252,6 +270,8 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
 
 
     off_t prefetch_offset = GetOffset();
+    ss << "prefetch_offset = " << prefetch_offset;
+
     if (prefetch_offset < offset)
     {
         if (Dbg > 1) m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());

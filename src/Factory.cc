@@ -16,7 +16,7 @@
 #include "Factory.hh"
 #include "Prefetch.hh"
 #include "Decision.hh"
-
+#include "File.hh"
 #include "Context.hh"
 
 
@@ -122,9 +122,10 @@ XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
 Factory &
 Factory::GetInstance()
 {
-    XrdSysMutexHelper monitor(&m_factory_mutex);
-    if (m_factory == NULL)
-        m_factory = new Factory();
+    // XrdSysMutexHelper monitor(&m_factory_mutex);
+    //AMT !!!
+       if (m_factory == NULL)
+      m_factory = new Factory();
     return *m_factory;
 }
 
@@ -341,42 +342,38 @@ Factory::ConfigParameters(const char * parameters)
     return true;
 }
 
-PrefetchPtr
-Factory::GetPrefetch(XrdOucCacheIO & io)
+FilePtr
+Factory::GetXfcFile(XrdOucCacheIO & io)
 {
     std::string filename = io.Path();
-    m_log.Emsg("GetPrefetch", "Prefetch object requested for ", filename.c_str());
+    m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
+
     if (!Decide(filename))
     {
-        PrefetchPtr result;
+        FilePtr result;
         return result;
     }
-    XrdSysMutexHelper monitor(&m_factory_mutex);
-    PrefetchWeakPtrMap::const_iterator it = m_prefetch_map.find(filename);
+     
 
-    if (it == m_prefetch_map.end())
+    XrdSysMutexHelper monitor(&m_factory_mutex);
+    FileWeakPtrMap::const_iterator it = m_file_map.find(filename);
+    if (it == m_file_map.end())
     {
-        PrefetchPtr result;
-        result.reset(new Prefetch(m_log, *m_output_fs, io));
-        m_prefetch_map[filename] = result;
+        FilePtr result;
+        result.reset(new File(m_log, *m_output_fs, io));
+        m_file_map[filename] = result;
         return result;
     }
-    PrefetchPtr result = it->second.lock();
+    FilePtr result = it->second.lock();
     if (!result)
     {
-        result.reset(new Prefetch(m_log, *m_output_fs, io));
-        m_prefetch_map[filename] = result;
+        result.reset(new File(m_log, *m_output_fs, io));
+        m_file_map[filename] = result;
         return result;
     }
     return result;
 }
 
-bool
-Factory::HavePrefetchForIO(XrdOucCacheIO & io)
-{
-   PrefetchWeakPtrMap::const_iterator it = m_prefetch_map.find(io.Path());
-    return it != m_prefetch_map.end();
-}
 
 bool
 Factory::Decide(std::string &filename)

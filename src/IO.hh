@@ -50,7 +50,7 @@ public:
     int Write(char *Buffer, long long Offset, int Length) { errno = ENOTSUP; return -1; }
 
 protected:
-    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, XrdOssDF* preExistDF, PrefetchPtr pread,  XrdSysError &);
+    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, FilePtr pread,  XrdSysError &);
 
 private:
 
@@ -59,8 +59,7 @@ private:
 
     XrdOucCacheIO & m_io;
     XrdOucCacheStats & m_stats;
-    XrdOssDF* m_preExistDF;
-    PrefetchPtr m_prefetch;
+    FilePtr m_file;
     Cache & m_cache;
     XrdSysError m_log;
 };

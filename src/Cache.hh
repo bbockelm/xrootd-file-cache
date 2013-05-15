@@ -35,8 +35,6 @@ protected:
 
     Cache(XrdOucCacheStats&, XrdSysError&);
 
-    void checkDiskCache(XrdOucCacheIO*);
-
 private:
 
     void Detach(XrdOucCacheIO *);

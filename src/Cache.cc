@@ -10,6 +10,7 @@
 #include "Cache.hh"
 #include "Factory.hh"
 #include "Prefetch.hh"
+#include "File.hh"
 #include "Context.hh"
 
 using namespace XrdFileCache;
@@ -19,7 +20,7 @@ void *PrefetchRunner(void * prefetch_void)
     Prefetch *prefetch = static_cast<Prefetch *>(prefetch_void);
     if (prefetch)
         prefetch->Run();
-    return NULL;
+        return NULL;
 }
 
 Cache *Cache::m_cache = NULL;
@@ -38,38 +39,15 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached ++;
 
+        m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
     if (io)
     {
-        m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
 
-      
-        bool havePrefetch = Factory::GetInstance().HavePrefetchForIO(*io);
-
-        // check file is in already on disk
-        // AMT todo:: resolve ovnership of XrdOssDF
-        XrdOssDF* preExistDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
-        if (!havePrefetch)
-        {
-            XrdOucEnv myEnv;
-            std::string fname;
-            getFilePathFromURL(io->Path(), fname);
-            fname = Factory::GetInstance().GetTempDirectory() + fname;
-            int res = preExistDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
-            if (res >= 0)
-                m_log.Emsg("Attach", "File already cached on disk.");
-        }
-
-        // use prefetch if file is not yet on disk
-        PrefetchPtr prefetch;
-        if (preExistDF->getFD() <= 0)
-        {
-            prefetch = Factory::GetInstance().GetPrefetch(*io);
-	    // AMT:: shouldn't we check if thread is already running
-            pthread_t tid;
-            XrdSysThread::Run(&tid, PrefetchRunner, (void *)(prefetch.get()), 0, "XrdFileCache Prefetcher");
-        }
-
-        return new IO(*io, m_stats, *this,preExistDF, prefetch,  m_log);
+        FilePtr f =   Factory::GetInstance().GetXfcFile(*io);
+        // AMT: should thread be  spawned on each Attach() ??
+        pthread_t tid;
+        XrdSysThread::Run(&tid, PrefetchRunner, (void *)(f->GetPrefetch()), 0, "XrdFileCache Prefetcher");
+        return new IO(*io, m_stats, *this, f,  m_log);
     }
     else
     {
@@ -81,7 +59,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
 int 
 Cache::isAttached()
 {
-   // AMT:: where is this used ??
+   // AMT:: is this used anywere, can si it also in xrootd coide itself??
     XrdSysMutexHelper lock(&m_io_mutex);
     return m_attached;
 }
@@ -89,6 +67,9 @@ Cache::isAttached()
 void
 Cache::Detach(XrdOucCacheIO* io)
 { 
+
+    // AMT:: don't know why ~IO should be called from this class
+   //        why not directly in IO::Detach() ??? 
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
 
@@ -98,6 +79,8 @@ Cache::Detach(XrdOucCacheIO* io)
     delete io;
 }
 
+
+// AMT the function is a UTIL, does not have to be in this class
 bool
 Cache::getFilePathFromURL(const char* url, std::string &result)
 {
@@ -114,10 +97,4 @@ Cache::getFilePathFromURL(const char* url, std::string &result)
       return false;
 
    return true;
-}
-
-void
-Cache::checkDiskCache(XrdOucCacheIO* io)
-{
-  
 }

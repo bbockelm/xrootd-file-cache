@@ -10,12 +10,13 @@
 #include <XrdOuc/XrdOucCache.hh>
 
 #include "XrdFileCacheFwd.hh"
+class XrdClient;
 
 namespace XrdFileCache {
 
 class Prefetch {
 
-friend class IO;
+friend class File;
 
 public:
 
@@ -30,8 +31,6 @@ protected:
     ssize_t Read(char * buff, off_t offset, size_t size);
     void CloseCleanly();
   
-   //    bool hasCompletedSuccessfully() const;
-
 private:
 
     inline off_t GetOffset() {return __sync_fetch_and_or(&m_offset, 0);}
@@ -42,6 +41,9 @@ private:
     XrdOssDF *m_output;
    
     XrdOucCacheIO & m_input;
+
+   XrdClient* m_xrdClient;
+
     off_t m_offset;
     static const size_t m_buffer_size;
     bool m_started;
