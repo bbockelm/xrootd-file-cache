@@ -10,6 +10,7 @@
 #include "XrdOss/XrdOssApi.hh"
 #endif
 #include "XrdSys/XrdSysPlugin.hh"
+#include "XrdClient/XrdClient.hh"
 #include "XrdVersion.hh"
 
 #include "Cache.hh"
@@ -319,14 +320,14 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             m_username = part.c_str();
             //std::string msg = "Set user to " +  part;
-            //m_log.Emsg("Config",  msg.c_str());
+            // m_log.Emsg("Config",  msg.c_str());
         }
         else if  ( part == "-tmp" )
         {
             getline(is, part, ' ');
             m_temp_directory = part.c_str();
             //std::string msg = "Set cache directory to " +  part;
-            //m_log.Emsg("Config",  msg.c_str());           
+            // m_log.Emsg("Config",  msg.c_str());           
         }
         else if  ( part == "-expire" )
         {
@@ -337,6 +338,18 @@ Factory::ConfigParameters(const char * parameters)
         {
             getline(is, part, ' ');
             Dbg = atoi(part.c_str());
+        }
+        else if  ( part == "-exclude" )
+        {
+            getline(is, part, ' ');
+            printf("wwww[%s] \n",part.c_str() );
+            std::stringstream es(part);
+            std::string excHost;
+            while (getline(es, excHost, ':')) {
+
+                printf("exclude [%s] \n", excHost.c_str());
+                XrdClient::fDefaultExcludedHosts.push_back(excHost);
+            }
         }
     }
     return true;
