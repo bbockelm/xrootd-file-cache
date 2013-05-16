@@ -198,12 +198,18 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if (retval)
         retval = ConfigParameters(parameters);
 
-    m_log.Emsg("Config", "Cache user name: ", m_username.c_str());
+    m_log.Emsg("Config", "Cache user name ", m_username.c_str());
     m_log.Emsg("Config", "Cache temporary directory: ", m_temp_directory.c_str());
     {
-        std::stringstream cem; cem<< "Cache expire if not access for :" << m_cache_expire << " [s]";
-        m_log.Emsg("Config", cem.str().c_str());
+       std::stringstream xss;  xss << Dbg;
+       m_log.Emsg("Config", "Cache debug ", xss.str().c_str());
     }
+
+    {
+       std::stringstream xss;  xss << m_cache_expire << "[s]";
+       m_log.Emsg("Config", "Cache expire ", xss.str().c_str());
+    }
+
     if (retval)
     {
         XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str(), NULL);
@@ -315,7 +321,7 @@ Factory::ConfigParameters(const char * parameters)
     string part;
     while (getline(is, part, ' '))
     {
-        cout << part << endl;
+       // cout << part << endl;
         if ( part == "-user" ) {
             getline(is, part, ' ');
             m_username = part.c_str();
@@ -342,12 +348,11 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-exclude" )
         {
             getline(is, part, ' ');
-            printf("wwww[%s] \n",part.c_str() );
+	   //  std::string msg = "Set cache directory to " +  part;
+            m_log.Emsg("Config", "Excluded hosts ", part.c_str());          
             std::stringstream es(part);
             std::string excHost;
             while (getline(es, excHost, ':')) {
-
-                printf("exclude [%s] \n", excHost.c_str());
                 XrdClient::fDefaultExcludedHosts.push_back(excHost);
             }
         }
@@ -359,7 +364,7 @@ FilePtr
 Factory::GetXfcFile(XrdOucCacheIO & io)
 {
     std::string filename = io.Path();
-    m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
+    if (Dbg) m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
 
     if (!Decide(filename))
     {

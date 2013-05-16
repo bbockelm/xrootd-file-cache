@@ -2,6 +2,7 @@
 #include "Cache.hh"
 #include "Prefetch.hh"
 #include "Context.hh"
+
 #include "File.hh"
 
 #include <sstream>
@@ -44,7 +45,7 @@ IO::Detach()
 int IO::Read (char *buff, long long off, int size)
 {
     std::stringstream ss; ss << "Read " << off << "@" << size;
-    m_log.Emsg("IO", ss.str().c_str());
+    if (Dbg) m_log.Emsg("IO", ss.str().c_str());
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
 
@@ -52,7 +53,7 @@ int IO::Read (char *buff, long long off, int size)
     if (m_file.get())
     {
         retval = m_file->Read(m_stats, buff, off, size);
-        printf("XfcFile read return val [%d] ...... \n", retval);
+	// printf("XfcFile read return val [%d] ...... \n", retval);
     } 
 
 
@@ -67,8 +68,13 @@ int IO::Read (char *buff, long long off, int size)
     if ((size > 0))
     {
         retval = m_io.Read(buff, off, size);
-        printf("XfcFile read ORIG return val [%d] ...... \n", retval);
+        // printf(" read ORIG return val [%d] ...... \n", retval);
         if (retval > 0) bytes_read += retval;
+    }
+    if (retval <= 0)
+    {
+       ss.clear(); ss << "[" << retval << "]";
+       m_log.Emsg("IO", "Read error, bytes read ", ss.str().c_str());
     }
     return (retval < 0) ? retval : bytes_read;
 

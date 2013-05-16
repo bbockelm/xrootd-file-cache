@@ -8,6 +8,7 @@
 #include "Prefetch.hh"
 #include "Factory.hh"
 #include "Cache.hh"
+#include "Context.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 
 using namespace XrdFileCache;
@@ -26,7 +27,6 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
     fname = Factory::GetInstance().GetTempDirectory() + fname;
     int test = -1;  // test is existance of cinfo file
     {
-        m_log.Emsg("File, ", " test if file is complete on disk");
         std::string chkname = fname + ".cinfo";
         XrdOucEnv myEnv;
         XrdOssDF* testfd = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
@@ -34,11 +34,10 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
     }
     if (test >= 0 )
     {
-            m_log.Emsg("File, ", " open file from disk");
         m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         if ( m_diskDF  && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
         {
-            m_log.Emsg("File, ", "read from disk");
+	   if (Dbg) m_log.Emsg("File, ", "read from disk");
             m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
         }
     }
@@ -46,14 +45,13 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
     // create prefetch 
     if (m_diskDF  == 0 || m_diskDF && m_diskDF->getFD() <= 0)
     {
-        m_log.Emsg("xcfFile ", "Create Prefetch");
+       if (Dbg) m_log.Emsg("xcfFile ", "Create Prefetch");
         m_prefetch = new XrdFileCache::Prefetch(log, outputFS, inputFile);
     }
 }
 
 File::~File()
 {
-    m_log.Emsg("File, ", "Going to destruct.");
     if (m_prefetch)
     {
         m_prefetch->CloseCleanly();

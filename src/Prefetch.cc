@@ -35,8 +35,6 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
 
     if ( ! m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
     {
-        //  if (Dbg) m_log.Emsg("Constructor", " create client initial URL ", m_input.Client()->fInitialUrl.c_str());
-        //  m_log.Emsg("Constructor", "Client error ", m_input.Client()->fInitialUrl.c_str());
         m_log.Emsg("Constructor", "Client error ", m_input.Path());
     }
 }
@@ -61,7 +59,6 @@ Prefetch::Run()
 
     int retval = 0;
     // AMT 
-    //while (0 != (retval = m_input.Read(&buff[0], m_offset, m_buffer_size)))
     while (0 != (retval = m_xrdClient->Read(&buff[0], m_offset, m_buffer_size)))
     {
         if ((retval < 0) && (retval != -EINTR))
@@ -183,6 +180,8 @@ Prefetch::Open()
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;
+	std::stringstream ss; ss << m_offset;
+        if(m_offset) { if (Dbg) m_log.Emsg("Open", "Pickup where we left off. Offset = ", ss.str().c_str()); }
     }
 
     m_finalized = false;
