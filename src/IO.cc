@@ -87,9 +87,47 @@ int IO::Read (char *buff, long long off, int size)
 
 int IO::ReadV (const XrdOucIOVec *readV, int n)
 {
-
-   printf("AMT NOT YET IMPLEMNETED !!!!\n");
-   return 0;
+    ssize_t bytes_read = 0;
+    size_t missing = 0;
+    XrdOucIOVec missingReadV[READV_MAXCHUNKS];
+    for (size_t i=0; i<n; i++)
+    {
+        XrdSfsXferSize size = readV[i].size;
+        char * buff = readV[i].data;
+        XrdSfsFileOffset off = readV[i].offset;
+        if (m_file.get())
+        {
+           ssize_t retval = m_file->Read(m_stats, buff, off, size);
+           if ((retval > 0) && (retval == size))
+           {
+               // TODO: could handle partial reads here
+               bytes_read += size;
+               continue;
+           }
+        }
+        missingReadV[missing].size = size;
+        missingReadV[missing].data = buff;
+        missingReadV[missing].offset = off;
+        missing ++;
+        if (missing >= READV_MAXCHUNKS)
+        { // Something went wrong in construction of this request;
+            // Should be limited in higher layers to a max of 512 chunks.
+            return -1;
+        }
+    }
+    if (missing)
+    {
+        ssize_t retval = m_io.ReadV(missingReadV, missing);
+        if (retval >= 0)
+        {
+            return retval + bytes_read;
+        }
+        else
+        {
+            return retval;
+        }
+    }
+    return bytes_read;
 }
 #endif
 

@@ -10,7 +10,7 @@
 #include "Cache.hh"
 #include "Context.hh"
 #include "XrdOuc/XrdOucEnv.hh"
-
+#include "XrdSfs/XrdSfsInterface.hh"
 using namespace XrdFileCache;
 
 File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
