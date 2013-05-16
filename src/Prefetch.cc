@@ -31,7 +31,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
 {
     m_log.logger(log.logger());
 
-    m_xrdClient = new XrdClient(m_input.Client()->fInitialUrl.c_str());
+    m_xrdClient = new XrdClient(m_input.Path());
 
     if ( ! m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
     {

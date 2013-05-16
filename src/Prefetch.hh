@@ -10,7 +10,7 @@
 #include <XrdOuc/XrdOucCache.hh>
 
 #include "XrdFileCacheFwd.hh"
-
+class XrdClient;
 namespace XrdFileCache {
 
 class Prefetch {
