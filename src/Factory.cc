@@ -345,6 +345,18 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             Dbg = atoi(part.c_str());
         }
+        else if  ( part == "-log" )
+        {
+            getline(is, part, ' ');
+	    Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
+	    if (Rec.is_open())
+	       m_log.Emsg("Config", "Write record in file", part.c_str());  
+	    else
+	    {
+	       m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log"); 
+               Rec.open("/tmp/xroot_cache.log");
+	    }
+	}
         else if  ( part == "-exclude" )
         {
             getline(is, part, ' ');
@@ -357,6 +369,7 @@ Factory::ConfigParameters(const char * parameters)
             }
         }
     }
+    //	exit(0);
     return true;
 }
 

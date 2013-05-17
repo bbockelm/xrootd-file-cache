@@ -39,13 +39,15 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached ++;
 
-        m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
+    m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
+    Rec << time(NULL)  << " Attach " << io->Path() << std::endl;
     if (io)
     {
 
         FilePtr f =   Factory::GetInstance().GetXfcFile(*io);
         // AMT: should thread be  spawned on each Attach() ??
         pthread_t tid;
+	Rec << time(NULL) << " Prefetch " << io->Path() << std::endl;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(f->GetPrefetch()), 0, "XrdFileCache Prefetcher");
         return new IO(*io, m_stats, *this, f,  m_log);
     }
@@ -67,6 +69,8 @@ Cache::isAttached()
 void
 Cache::Detach(XrdOucCacheIO* io)
 { 
+    Rec << time(NULL)  << " Detach " << io->Path() << std::endl;
+
     // AMT:: don't know why ~IO should be called from this class
    //        why not directly in IO::Detach() ??? 
     XrdSysMutexHelper lock(&m_io_mutex);

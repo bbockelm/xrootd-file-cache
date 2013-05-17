@@ -38,7 +38,8 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
         if ( m_diskDF  && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
         {
 	   if (Dbg) m_log.Emsg("File, ", "read from disk");
-            m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
+	   Rec << time(NULL) << " disk " << inputFile.Path()  << std::endl;
+           m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
         }
     }
 

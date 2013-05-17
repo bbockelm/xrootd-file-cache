@@ -3,5 +3,5 @@
 namespace XrdFileCache
 {
 int Dbg;
-std::fstream record;
+std::fstream Rec;
 }
