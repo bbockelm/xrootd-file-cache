@@ -34,61 +34,62 @@ using namespace XrdFileCache;
 Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
 
-XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
-                    const char *OssLib, const char *OssParms)
+XrdOss *
+XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
+            const char *OssLib, const char *OssParms)
 {
-   static XrdOssSys myOssSys;
-   extern XrdSysError OssEroute;
-   XrdSysPlugin *myLib;
-   XrdOss *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
+    static XrdOssSys myOssSys;
+    extern XrdSysError OssEroute;
+    XrdSysPlugin *myLib;
+    XrdOss *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
 
-   XrdSysError err(Logger, "XrdOssGetSS");
+    XrdSysError err(Logger, "XrdOssGetSS");
 
 // If no library has been specified, return the default object
 //
 #if defined(HAVE_VERSIONS)
-   if (!OssLib) OssLib = "libXrdOfs.so"
+    if (!OssLib)
+        OssLib = "libXrdOfs.so"
 #else
-   if (!OssLib || !*OssLib) {err.Emsg("GetOSS", "Attempting to initiate default OSS object.");
-                 if (myOssSys.Init(Logger, config_fn)) return 0;
-                    else return (XrdOss *)&myOssSys;
-                }
+    if (!OssLib || !*OssLib)
+    {
+        err.Emsg("GetOSS", "Attempting to initiate default OSS object.");
+        if (myOssSys.Init(Logger, config_fn)) return 0;
+        else return (XrdOss *)&myOssSys;
+    }
 #endif
 
 // Create a plugin object
 //
-   OssEroute.logger(Logger);
-   OssEroute.Emsg("XrdOssGetSS", "Initializing OSS lib from ", OssLib);
+                 OssEroute.logger(Logger);
+    OssEroute.Emsg("XrdOssGetSS", "Initializing OSS lib from ", OssLib);
 #if defined(HAVE_VERSIONS)
-   if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
-                                  myOssSys.myVersion))) return 0;
+    if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
+                                   myOssSys.myVersion))) return 0;
 #else
-   if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib))) return 0;
+    if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib))) return 0;
 #endif
 
 // Now get the entry point of the object creator
 //
-   ep = (XrdOss *(*)(XrdOss *, XrdSysLogger *, const char *, const char *))
-                    (myLib->getPlugin("XrdOssGetStorageSystem"));
-   if (!ep) return 0;
+    ep = (XrdOss *(*)(XrdOss *, XrdSysLogger *, const char *, const char *))
+             (myLib->getPlugin("XrdOssGetStorageSystem"));
+    if (!ep) return 0;
 
 // Get the Object now
 //
 #if defined(HAVE_VERSIONS)
-   myLib->Persist(); delete myLib;
+    myLib->Persist(); delete myLib;
 #endif
-   return ep((XrdOss *)&myOssSys, Logger, config_fn, OssParms);
+    return ep((XrdOss *)&myOssSys, Logger, config_fn, OssParms);
 }
 
 
-Factory * Factory::m_factory = NULL;
-XrdSysMutex Factory::m_factory_mutex;
-
-
-void* TempDirCleanupThread(void*)
+void*
+TempDirCleanupThread(void*)
 {
-   Factory::GetInstance().TempDirCleanup();
-   return NULL;
+    Factory::GetInstance().TempDirCleanup();
+    return NULL;
 }
 
 
@@ -98,14 +99,15 @@ Factory::Factory()
       m_username("nobody"),
       m_cache_expire(172800)
 {
-   Dbg = 1;
+    Dbg = 1;
 }
 
 extern "C"
 {
-XrdOucCache *XrdOucGetCache(XrdSysLogger *logger,
-                            const char   *config_filename,
-                            const char   *parameters)
+XrdOucCache *
+XrdOucGetCache(XrdSysLogger *logger,
+               const char   *config_filename,
+               const char   *parameters)
 {
     XrdSysError err(0, "XrdFileCache_");
     err.logger(logger);
@@ -130,8 +132,8 @@ Factory::GetInstance()
 {
     // XrdSysMutexHelper monitor(&m_factory_mutex);
     //AMT !!!
-       if (m_factory == NULL)
-      m_factory = new Factory();
+    if (m_factory == NULL)
+        m_factory = new Factory();
     return *m_factory;
 }
 
@@ -210,13 +212,13 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     m_log.Emsg("Config", "Cache user name ", m_username.c_str());
     m_log.Emsg("Config", "Cache temporary directory: ", m_temp_directory.c_str());
     {
-       std::stringstream xss;  xss << Dbg;
-       m_log.Emsg("Config", "Cache debug ", xss.str().c_str());
+        std::stringstream xss;  xss << Dbg;
+        m_log.Emsg("Config", "Cache debug ", xss.str().c_str());
     }
 
     {
-       std::stringstream xss;  xss << m_cache_expire << "[s]";
-       m_log.Emsg("Config", "Cache expire ", xss.str().c_str());
+        std::stringstream xss;  xss << m_cache_expire << "[s]";
+        m_log.Emsg("Config", "Cache expire ", xss.str().c_str());
     }
 
     if (retval)
@@ -225,7 +227,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
         if (!output_fs)
         {
             m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
-           retval = false;
+            retval = false;
         }
         m_output_fs = output_fs;
     }
@@ -236,10 +238,11 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     return retval;
 }
 
-bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
+bool
+Factory::ConfigXeq(char *var, XrdOucStream &Config)
 {
     TS_Xeq("osslib",        xolib);
-    TS_Xeq("decisionlib" ,  xdlib);
+    TS_Xeq("decisionlib",  xdlib);
     return true;
 }
 
@@ -250,8 +253,8 @@ bool Factory::ConfigXeq(char *var, XrdOucStream &Config)
              <path>  the path of the oss library to be used.
              <parms> optional parameters to be passed.
 
-  Output: true upon success or false upon failure.
-*/
+   Output: true upon success or false upon failure.
+ */
 bool
 Factory::xolib(XrdOucStream &Config)
 {
@@ -287,11 +290,11 @@ Factory::xolib(XrdOucStream &Config)
 
 
    Output: true upon success or false upon failure.
-*/
+ */
 bool
 Factory::xdlib(XrdOucStream &Config)
 {
-    const char*  val; 
+    const char*  val;
 
     std::string libp;
     if (!(val = Config.GetWord()) || !val[0])
@@ -299,8 +302,9 @@ Factory::xdlib(XrdOucStream &Config)
         m_log.Emsg("Config", "decisionlib not specified; always caching files");
         libp = "XrdFileCacheAllowAlways";
     }
-    else{
-         libp = val;
+    else
+    {
+        libp = val;
     }
 
     const char* params;
@@ -318,10 +322,12 @@ Factory::xdlib(XrdOucStream &Config)
     Decision * d = ep(m_log);
     if (!d)
     {
-       m_log.Emsg("Config", "decisionlib was not able to create a decision object");
-       return false;
+        m_log.Emsg("Config", "decisionlib was not able to create a decision object");
+        return false;
     }
-    if (params) d->ConfigDecision(params)
+    if (params)
+        d->ConfigDecision(params);
+
     m_decisionpoints.push_back(d);
     return true;
 }
@@ -339,8 +345,9 @@ Factory::ConfigParameters(const char * parameters)
     string part;
     while (getline(is, part, ' '))
     {
-       // cout << part << endl;
-        if ( part == "-user" ) {
+        // cout << part << endl;
+        if ( part == "-user" )
+        {
             getline(is, part, ' ');
             m_username = part.c_str();
             //std::string msg = "Set user to " +  part;
@@ -351,7 +358,7 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             m_temp_directory = part.c_str();
             //std::string msg = "Set cache directory to " +  part;
-            // m_log.Emsg("Config",  msg.c_str());           
+            // m_log.Emsg("Config",  msg.c_str());
         }
         else if  ( part == "-expire" )
         {
@@ -366,21 +373,21 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-log" )
         {
             getline(is, part, ' ');
-	    Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
-	    if (Rec.is_open())
-	       m_log.Emsg("Config", "Write record in file", part.c_str());  
-	    else
-	    {
-	       m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log"); 
-               Rec.open("/tmp/xroot_cache.log");
-	    }
-	}
+            Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
+            if (Rec.is_open())
+                m_log.Emsg("Config", "Write record in file", part.c_str());
+            else
+            {
+                m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log");
+                Rec.open("/tmp/xroot_cache.log");
+            }
+        }
         else if  ( part == "-exclude" )
         {
-           getline(is, part, ' ');
-           // m_log.Emsg("Config", "Excluded hosts ", part.c_str());          
-           XrdClient::fDefaultExcludedHosts = part;
-           part += ",";
+            getline(is, part, ' ');
+            // m_log.Emsg("Config", "Excluded hosts ", part.c_str());
+            XrdClient::fDefaultExcludedHosts = part;
+            part += ",";
         }
     }
 
@@ -398,7 +405,7 @@ Factory::GetXfcFile(XrdOucCacheIO & io)
         FilePtr result;
         return result;
     }
-     
+
 
     XrdSysMutexHelper monitor(&m_factory_mutex);
     FileWeakPtrMap::const_iterator it = m_file_map.find(filename);
@@ -423,74 +430,82 @@ Factory::GetXfcFile(XrdOucCacheIO & io)
 bool
 Factory::Decide(std::string &filename)
 {
-
-    printf("AMT add decision points ... %p\n", (void*)m_xxx);
-    m_xxx->testin();
-
+    std::vector<Decision*>::const_iterator it;
+    for (it = m_decisionpoints.begin(); it != m_decisionpoints.end(); ++it)
+    {
+        Decision *d = *it;
+        if (!d) continue;
+        if (!d->Decide(filename, *m_output_fs))
+        {
+            return false;
+        }
+    }
     return true;
 }
 
 
 
-void Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
-{   
-   char buff[256];
-   XrdOucEnv env;
-   struct stat st;
-   int  rdr;
-   //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
-   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
-   {
-      std::string np = path + "/" + std::string(buff); 
-      if ( strlen(&buff[0]) == 0  )
-      {
-         // std::cout << "Finish read dir. Break loop \n";
-         break;
-      }
+void
+Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
+{
+    char buff[256];
+    XrdOucEnv env;
+    struct stat st;
+    int rdr;
+    //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
+    while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
+    {
+        std::string np = path + "/" + std::string(buff);
+        if ( strlen(&buff[0]) == 0  )
+        {
+            // std::cout << "Finish read dir. Break loop \n";
+            break;
+        }
 
 
-      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
-      {
-         std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-         std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-	 // std::cerr << "check " << np << std::endl;
-         if ( dh->Opendir(np.c_str(), env)  >= 0 )
-         {
-            CheckDirStatRecurse(dh.get(), np);
-         }
-         else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
-         {
-            fh->Fstat(&st);
-            if ( time(0) - st.st_mtime > m_cache_expire )
+        if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
+        {
+            std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+            std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
+            // std::cerr << "check " << np << std::endl;
+            if ( dh->Opendir(np.c_str(), env)  >= 0 )
             {
-               m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
-               m_output_fs->Unlink(np.c_str());
+                CheckDirStatRecurse(dh.get(), np);
             }
-         }
-	 else
-	 {
-	     m_log.Emsg("CheckDirStatRecurse", "can't access file ", np.c_str());
-	 }
-      }
-   }
+            else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
+            {
+                fh->Fstat(&st);
+                if ( time(0) - st.st_mtime > m_cache_expire )
+                {
+                    m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
+                    m_output_fs->Unlink(np.c_str());
+                }
+            }
+            else
+            {
+                m_log.Emsg("CheckDirStatRecurse", "can't access file ", np.c_str());
+            }
+        }
+    }
 }
 
 
-void Factory::TempDirCleanup()
+void
+Factory::TempDirCleanup()
 {
-   XrdOucEnv env;
-   int interval = (m_cache_expire > 7200) ? 7200 : m_cache_expire;
-   while (1)
-   {   
-      // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
-      //      not work properly
-      std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-      if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
-         CheckDirStatRecurse(dh.get(), m_temp_directory);
-      else
-         m_log.Emsg("TempDirCleanup", "can't open file cache directory ", m_temp_directory.c_str());
+    XrdOucEnv env;
+    int interval = (m_cache_expire > 7200) ? 7200 : m_cache_expire;
+    while (1)
+    {
+        // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
+        //      not work properly
+        std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
+        if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
+            CheckDirStatRecurse(dh.get(), m_temp_directory);
+        else
+            m_log.Emsg("TempDirCleanup", "can't open file cache directory ", m_temp_directory.c_str());
 
-      dh->Close();
-      sleep(interval);   
-   }
+        dh->Close();
+        sleep(interval);
+    }
 }
