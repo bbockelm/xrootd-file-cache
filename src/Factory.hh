@@ -18,30 +18,36 @@
 
 class XrdOucStream;
 
-namespace XrdFileCache {
+namespace XrdFileCache
+{
 
 class Cache;
 
 class Factory : public XrdOucCache
 {
 
-friend class Cache;
+    friend class Cache;
 
 public:
 
     Factory();
 
-    XrdOucCacheIO *Attach(XrdOucCacheIO *, int Options=0) {return NULL;}
+    XrdOucCacheIO *
+    Attach(XrdOucCacheIO *, int Options=0) {return NULL; }
 
-    int isAttached() {return false;}
+    int
+    isAttached() {return false; }
 
     bool Config(XrdSysLogger *logger, const char *config_filename, const char *parameters);
 
     virtual XrdOucCache *Create(Parms &, XrdOucCacheIO::aprParms *aprP=0);
 
-    const std::string &GetUsername() const {return m_username;}
-    const std::string GetTempDirectory() const {return m_temp_directory;}
-    XrdOss*  GetOss() const {return m_output_fs;}
+    const std::string &
+    GetUsername() const {return m_username; }
+    const std::string
+    GetTempDirectory() const {return m_temp_directory; }
+    XrdOss*
+    GetOss() const {return m_output_fs; }
 
     void TempDirCleanup();
     static Factory &GetInstance();

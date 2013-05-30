@@ -3,7 +3,8 @@
 
 #include <fstream>
 
-namespace  XrdFileCache {
+namespace  XrdFileCache
+{
 extern int Dbg;
 extern std::fstream Rec;
 }

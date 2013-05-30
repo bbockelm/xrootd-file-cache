@@ -33,7 +33,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
 
     m_xrdClient = new XrdClient(m_input.Path());
 
-    if ( ! m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
+    if ( !m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
     {
         m_log.Emsg("Constructor", "Client error ", m_input.Path());
     }
@@ -58,7 +58,7 @@ Prefetch::Run()
     buff.reserve(m_buffer_size);
 
     int retval = 0;
-    // AMT 
+    // AMT
     while (0 != (retval = m_xrdClient->Read(&buff[0], m_offset, m_buffer_size)))
     {
         if ((retval < 0) && (retval != -EINTR))
@@ -69,17 +69,18 @@ Prefetch::Run()
         int buffer_remaining = retval;
         int buffer_offset = 0;
 
-       while ((buffer_remaining > 0) &&  // There is more to be written
-              (((retval = m_output->Write(&buff[buffer_offset], m_offset, buffer_remaining)) != -1) || (errno == EINTR))) { // Write occurs without an error
+        while ((buffer_remaining > 0) && // There is more to be written
+               (((retval = m_output->Write(&buff[buffer_offset], m_offset, buffer_remaining)) != -1) || (errno == EINTR)))  // Write occurs without an error
+        {
             buffer_remaining -= retval;
             buffer_offset += retval;
             __sync_fetch_and_add(&m_offset, retval);
         }
         if (retval < 0)
         {
-           break;
+            break;
         }
-       
+
         if (m_offset % (10*1024*1024) == 0)
         {
             std::stringstream ss;
@@ -96,8 +97,9 @@ Prefetch::Run()
         }
     }
 
-    if (retval < 0) {
-        if (Dbg)  m_log.Emsg("Run", retval, "Failure prefetching file");
+    if (retval < 0)
+    {
+        if (Dbg) m_log.Emsg("Run", retval, "Failure prefetching file");
         m_stop = true;
         Fail(retval != -EINTR);
     }
@@ -118,13 +120,13 @@ Prefetch::Join()
     }
     else if (m_started)
     {
-       if (Dbg)  m_log.Emsg("Join", "Waiting until prefetch finishes");
+        if (Dbg) m_log.Emsg("Join", "Waiting until prefetch finishes");
         m_cond.Wait();
         if (Dbg) m_log.Emsg("Join", "Prefetch finished");
     }
     else
     {
-       if (Dbg) m_log.Emsg("Join", "Prefetch not started - running it before Joining");
+        if (Dbg) m_log.Emsg("Join", "Prefetch not started - running it before Joining");
         monitor.UnLock();
         // Because we have unlocked the mutex, someone else may be
         // able to race us and Run - causing us to exit early.
@@ -136,7 +138,7 @@ Prefetch::Join()
 
 bool
 Prefetch::GetTempFilename(std::string &result)
-{ 
+{
     Cache::getFilePathFromURL(m_input.Path(), result);
     std::string tmp_directory = Factory::GetInstance().GetTempDirectory();
     result = tmp_directory + result;
@@ -148,7 +150,8 @@ bool
 Prefetch::Open()
 {
     XrdSysCondVarHelper monitor(m_cond);
-    if (m_started) {
+    if (m_started)
+    {
         return false;
     }
     m_started = true;
@@ -166,7 +169,7 @@ Prefetch::Open()
 
     // Create the file itself.
     XrdOucEnv myEnv;
-   
+
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), temp_path.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
     if (!m_output || m_output->Open(temp_path.c_str(), O_WRONLY, 0600, myEnv) < 0)
@@ -180,7 +183,7 @@ Prefetch::Open()
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;
-	std::stringstream ss; ss << m_offset;
+        std::stringstream ss; ss << m_offset;
         if(m_offset) { if (Dbg) m_log.Emsg("Open", "Pickup where we left off. Offset = ", ss.str().c_str()); }
     }
 
@@ -192,7 +195,8 @@ bool
 Prefetch::Close()
 {
     XrdSysCondVarHelper monitor(m_cond);
-    if (!m_started) {
+    if (!m_started)
+    {
         return false;
     }
 
@@ -204,7 +208,7 @@ Prefetch::Close()
         m_output = NULL;
 
         // AMT create a file with cinfo extension, to mark file has completed
-        // 
+        //
         if (m_started && !m_stop)
         {
             std::stringstream ss;
@@ -224,15 +228,15 @@ Prefetch::Close()
 bool
 Prefetch::Fail(bool cleanup)
 {
-   // Prefetch did not competed download.
-   // Remove cached file.
+    // Prefetch did not competed download.
+    // Remove cached file.
 
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
         return false;
     if (!m_started)
         return false;
-   
+
     if (m_output)
     {
         if (Dbg) m_log.Emsg("Fail", "Close m_output");
@@ -240,7 +244,7 @@ Prefetch::Fail(bool cleanup)
         delete m_output;
         m_output = NULL;
     }
-   
+
     if (cleanup && !m_temp_filename.empty())
         m_output_fs.Unlink(m_temp_filename.c_str());
 
@@ -259,7 +263,8 @@ ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
 {
     XrdSysCondVarHelper monitor(m_cond);
-    if (!m_started || m_finalized) {
+    if (!m_started || m_finalized)
+    {
         errno = EBADF;
         return -errno;
     }
@@ -279,25 +284,25 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
     {
-       ss << ", size  = " << size;
-       if (Dbg > 1) m_log.Emsg("Read", "read complete size", ss.str().c_str());
-       return m_output->Read(buff, offset, size);
+        ss << ", size  = " << size;
+        if (Dbg > 1) m_log.Emsg("Read", "read complete size", ss.str().c_str());
+        return m_output->Read(buff, offset, size);
     }
     else
     {
-       size_t to_read = offset + size - prefetch_offset;
-       ss << ", to_read  = " << to_read;
+        size_t to_read = offset + size - prefetch_offset;
+        ss << ", to_read  = " << to_read;
 
-       if (Dbg > 1) m_log.Emsg("Read", "read partial read ", ss.str().c_str());
-       return m_output->Read(buff, offset, to_read);
+        if (Dbg > 1) m_log.Emsg("Read", "read partial read ", ss.str().c_str());
+        return m_output->Read(buff, offset, to_read);
     }
 }
 
 
 /*
-bool
-Prefetch::hasCompletedSuccessfully() const
-{
+   bool
+   Prefetch::hasCompletedSuccessfully() const
+   {
    return m_finalized == true && m_stop == false;
-}
-*/
+   }
+ */

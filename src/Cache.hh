@@ -14,13 +14,14 @@
 #include "XrdFileCacheFwd.hh"
 
 
-namespace XrdFileCache {
+namespace XrdFileCache
+{
 
 class Cache : public XrdOucCache
 {
 
-friend class IO;
-friend class Factory;
+    friend class IO;
+    friend class Factory;
 
 public:
 
@@ -28,8 +29,9 @@ public:
 
     int isAttached();
 
-    virtual XrdOucCache* Create(XrdOucCache::Parms&, XrdOucCacheIO::aprParms*) {return NULL;}
-   static bool getFilePathFromURL(const char* url, std::string& res);
+    virtual XrdOucCache*
+    Create(XrdOucCache::Parms&, XrdOucCacheIO::aprParms*) {return NULL; }
+    static bool getFilePathFromURL(const char* url, std::string& res);
 
 protected:
 

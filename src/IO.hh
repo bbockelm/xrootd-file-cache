@@ -19,35 +19,42 @@
 class XrdSysError;
 class XrdOssDF;
 
-namespace XrdFileCache {
+namespace XrdFileCache
+{
 
 class IO : public XrdOucCacheIO
 {
 
-friend class Cache;
+    friend class Cache;
 
 public:
 
-    XrdOucCacheIO *Base() {return &m_io;}
+    XrdOucCacheIO *
+    Base() {return &m_io; }
 
     virtual XrdOucCacheIO *Detach();
 
-    long long FSize() {return m_io.FSize();}
+    long long
+    FSize() {return m_io.FSize(); }
 
-    const char *Path() {return m_io.Path();}
+    const char *
+    Path() {return m_io.Path(); }
 
-    int Read (char  *Buffer, long long  Offset, int  Length);
+    int Read (char  *Buffer, long long Offset, int Length);
 
 #if defined(HAVE_READV)
-    virtual  int  ReadV (const XrdOucIOVec *readV, int n);
+    virtual int  ReadV (const XrdOucIOVec *readV, int n);
 
 #endif
 
-    int Sync() {return 0;}
+    int
+    Sync() {return 0; }
 
-    int Trunc(long long Offset) { errno = ENOTSUP; return -1; }
+    int
+    Trunc(long long Offset) { errno = ENOTSUP; return -1; }
 
-    int Write(char *Buffer, long long Offset, int Length) { errno = ENOTSUP; return -1; }
+    int
+    Write(char *Buffer, long long Offset, int Length) { errno = ENOTSUP; return -1; }
 
 protected:
     IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, FilePtr pread,  XrdSysError &);

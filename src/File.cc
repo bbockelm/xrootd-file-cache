@@ -13,7 +13,7 @@
 #include "XrdSfs/XrdSfsInterface.hh"
 using namespace XrdFileCache;
 
-File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
+File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile) :
     m_diskDF(0),
     m_prefetch(0),
     m_log(log)
@@ -37,16 +37,16 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile):
         m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         if ( m_diskDF  && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
         {
-	   if (Dbg) m_log.Emsg("File, ", "read from disk");
-	   Rec << time(NULL) << " disk " << inputFile.Path()  << std::endl;
-           m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
+            if (Dbg) m_log.Emsg("File, ", "read from disk");
+            Rec << time(NULL) << " disk " << inputFile.Path()  << std::endl;
+            m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
         }
     }
 
-    // create prefetch 
+    // create prefetch
     if (m_diskDF  == 0 || m_diskDF && m_diskDF->getFD() <= 0)
     {
-       if (Dbg) m_log.Emsg("xcfFile ", "Create Prefetch");
+        if (Dbg) m_log.Emsg("xcfFile ", "Create Prefetch");
         m_prefetch = new XrdFileCache::Prefetch(log, outputFS, inputFile);
     }
 }
@@ -65,13 +65,14 @@ File::~File()
 }
 
 
-int File::Read (XrdOucCacheStats &/*Now*/, char *buff, long long off, int size)
+int
+File::Read (XrdOucCacheStats & /*Now*/, char *buff, long long off, int size)
 {
     return 0;
     if (m_prefetch)
     {
         if (Dbg > 1) m_log.Emsg("File, ", "Read from Prefetch.");
-        return  m_prefetch->Read(buff, off, size);
+        return m_prefetch->Read(buff, off, size);
     }
     else
     {

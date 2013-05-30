@@ -11,11 +11,12 @@
 
 #include "XrdFileCacheFwd.hh"
 class XrdClient;
-namespace XrdFileCache {
+namespace XrdFileCache
+{
 
 class Prefetch {
 
-friend class File;
+    friend class File;
 
 public:
 
@@ -29,16 +30,17 @@ protected:
 
     ssize_t Read(char * buff, off_t offset, size_t size);
     void CloseCleanly();
-  
+
 private:
 
-    inline off_t GetOffset() {return __sync_fetch_and_or(&m_offset, 0);}
+    inline off_t
+    GetOffset() {return __sync_fetch_and_or(&m_offset, 0); }
     bool GetTempFilename(std::string&);
 
     XrdOss & m_output_fs;
-   
+
     XrdOssDF *m_output;
-   
+
     XrdOucCacheIO & m_input;
 
     XrdClient* m_xrdClient;

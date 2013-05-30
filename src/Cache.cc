@@ -15,12 +15,13 @@
 
 using namespace XrdFileCache;
 
-void *PrefetchRunner(void * prefetch_void)
+void *
+PrefetchRunner(void * prefetch_void)
 {
     Prefetch *prefetch = static_cast<Prefetch *>(prefetch_void);
     if (prefetch)
         prefetch->Run();
-        return NULL;
+    return NULL;
 }
 
 Cache *Cache::m_cache = NULL;
@@ -30,14 +31,13 @@ Cache::Cache(XrdOucCacheStats & stats, XrdSysError & log)
     : m_attached(0),
       m_log(log),
       m_stats(stats)
-{
-}
+{}
 
 XrdOucCacheIO *
 Cache::Attach(XrdOucCacheIO *io, int Options)
 {
     XrdSysMutexHelper lock(&m_io_mutex);
-    m_attached ++;
+    m_attached++;
 
     m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
     Rec << time(NULL)  << " Attach " << io->Path() << std::endl;
@@ -47,32 +47,32 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
         FilePtr f =   Factory::GetInstance().GetXfcFile(*io);
         // AMT: should thread be  spawned on each Attach() ??
         pthread_t tid;
-	Rec << time(NULL) << " Prefetch " << io->Path() << std::endl;
+        Rec << time(NULL) << " Prefetch " << io->Path() << std::endl;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(f->GetPrefetch()), 0, "XrdFileCache Prefetcher");
         return new IO(*io, m_stats, *this, f,  m_log);
     }
     else
     {
-        m_attached --;
+        m_attached--;
         return NULL;
     }
 }
 
-int 
+int
 Cache::isAttached()
 {
-   // AMT:: is this used anywere, can si it also in xrootd coide itself??
+    // AMT:: is this used anywere, can si it also in xrootd coide itself??
     XrdSysMutexHelper lock(&m_io_mutex);
     return m_attached;
 }
 
 void
 Cache::Detach(XrdOucCacheIO* io)
-{ 
+{
     Rec << time(NULL)  << " Detach " << io->Path() << std::endl;
 
     // AMT:: don't know why ~IO should be called from this class
-   //        why not directly in IO::Detach() ??? 
+    //        why not directly in IO::Detach() ???
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
 
@@ -87,17 +87,17 @@ Cache::Detach(XrdOucCacheIO* io)
 bool
 Cache::getFilePathFromURL(const char* url, std::string &result)
 {
-   std::string path = url;
-   size_t split_loc = path.rfind("//");
+    std::string path = url;
+    size_t split_loc = path.rfind("//");
 
-   if (split_loc == path.npos)
-      return false;
+    if (split_loc == path.npos)
+        return false;
 
-   size_t kloc = path.rfind("?");
-   result = path.substr(split_loc+1,kloc-split_loc-1);
+    size_t kloc = path.rfind("?");
+    result = path.substr(split_loc+1,kloc-split_loc-1);
 
-   if (kloc == path.npos)
-      return false;
+    if (kloc == path.npos)
+        return false;
 
-   return true;
+    return true;
 }

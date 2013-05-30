@@ -26,13 +26,13 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, FilePtr file, 
 XrdOucCacheIO *
 IO::Detach()
 {
-   if (Dbg > 1) m_log.Emsg("IO", "Detach ", m_io.Path());
-   fflush(stdout);
+    if (Dbg > 1) m_log.Emsg("IO", "Detach ", m_io.Path());
+    fflush(stdout);
     XrdOucCacheIO * io = &m_io;
     if (m_file.get())
     {
         // AMT maybe don't have to do this here but automatically in destructor
-        //  is valid io still needed for destruction? if not than nothing has to be done here 
+        //  is valid io still needed for destruction? if not than nothing has to be done here
         m_file.reset();
     }
     m_cache.Detach(this); // This will delete us!
@@ -42,7 +42,8 @@ IO::Detach()
 /*
  * Read from the cache; prefer to read from the Prefetch object, if possible.
  */
-int IO::Read (char *buff, long long off, int size)
+int
+IO::Read (char *buff, long long off, int size)
 {
     std::stringstream ss; ss << "Read " << off << "@" << size;
     if (Dbg) m_log.Emsg("IO", ss.str().c_str());
@@ -53,8 +54,8 @@ int IO::Read (char *buff, long long off, int size)
     if (m_file.get())
     {
         retval = m_file->Read(m_stats, buff, off, size);
-	// printf("XfcFile read return val [%d] ...... \n", retval);
-    } 
+        // printf("XfcFile read return val [%d] ...... \n", retval);
+    }
 
 
     if (retval > 0)
@@ -75,8 +76,8 @@ int IO::Read (char *buff, long long off, int size)
     }
     if (retval <= 0)
     {
-       ss.clear(); ss << "[" << retval << "]";
-       m_log.Emsg("IO", "Read error, bytes read ", ss.str().c_str());
+        ss.clear(); ss << "[" << retval << "]";
+        m_log.Emsg("IO", "Read error, bytes read ", ss.str().c_str());
     }
     return (retval < 0) ? retval : bytes_read;
 
@@ -87,7 +88,8 @@ int IO::Read (char *buff, long long off, int size)
  */
 #if defined(HAVE_READV)
 
-int IO::ReadV (const XrdOucIOVec *readV, int n)
+int
+IO::ReadV (const XrdOucIOVec *readV, int n)
 {
     ssize_t bytes_read = 0;
     size_t missing = 0;
@@ -99,21 +101,21 @@ int IO::ReadV (const XrdOucIOVec *readV, int n)
         XrdSfsFileOffset off = readV[i].offset;
         if (m_file.get())
         {
-           ssize_t retval = m_file->Read(m_stats, buff, off, size);
-           if ((retval > 0) && (retval == size))
-           {
-               // TODO: could handle partial reads here
-               bytes_read += size;
-               continue;
-           }
+            ssize_t retval = m_file->Read(m_stats, buff, off, size);
+            if ((retval > 0) && (retval == size))
+            {
+                // TODO: could handle partial reads here
+                bytes_read += size;
+                continue;
+            }
         }
         missingReadV[missing].size = size;
         missingReadV[missing].data = buff;
         missingReadV[missing].offset = off;
-        missing ++;
+        missing++;
         if (missing >= READV_MAXCHUNKS)
         { // Something went wrong in construction of this request;
-            // Should be limited in higher layers to a max of 512 chunks.
+          // Should be limited in higher layers to a max of 512 chunks.
             return -1;
         }
     }
