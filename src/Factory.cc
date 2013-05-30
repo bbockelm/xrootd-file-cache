@@ -12,6 +12,7 @@
 #include "XrdSys/XrdSysPlugin.hh"
 #include "XrdClient/XrdClient.hh"
 #include "XrdVersion.hh"
+#include "XrdPosix/XrdPosixXrootd.hh"
 
 #include "Cache.hh"
 #include "Factory.hh"
@@ -29,13 +30,17 @@ using namespace XrdFileCache;
 // is not part of the stable API for extension writers, necessitating
 // the copy/paste.
 //
+
+Factory * Factory::m_factory = NULL;
+XrdSysMutex Factory::m_factory_mutex;
+
 XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
-                    const char   *OssLib, const char *OssParms)
+                    const char *OssLib, const char *OssParms)
 {
-   static XrdOssSys   myOssSys;
+   static XrdOssSys myOssSys;
    extern XrdSysError OssEroute;
-   XrdSysPlugin    *myLib;
-   XrdOss          *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
+   XrdSysPlugin *myLib;
+   XrdOss *(*ep)(XrdOss *, XrdSysLogger *, const char *, const char *);
 
    XrdSysError err(Logger, "XrdOssGetSS");
 
@@ -75,9 +80,9 @@ XrdOss *XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
    return ep((XrdOss *)&myOssSys, Logger, config_fn, OssParms);
 }
 
+
 Factory * Factory::m_factory = NULL;
 XrdSysMutex Factory::m_factory_mutex;
-
 
 
 void* TempDirCleanupThread(void*)
@@ -140,6 +145,10 @@ Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
+
+    // XrdPosixXrootd::setEnv("DataServerConn_ttl",  300);
+    // XrdPosixXrootd::setEnv("LBServerConn_ttl",    3600);
+
     m_log.logger(logger);
     m_log.Emsg("Config", "Configuring a file cache.");
 
@@ -268,6 +277,7 @@ Factory::xolib(XrdOucStream &Config)
     return true;
 }
 
+
 /* Function: xdlib
 
    Purpose:  To parse the directive: decisionlib <path> [<parms>]
@@ -275,27 +285,34 @@ Factory::xolib(XrdOucStream &Config)
              <path>  the path of the decision library to be used.
              <parms> optional parameters to be passed.
 
+
    Output: true upon success or false upon failure.
 */
 bool
 Factory::xdlib(XrdOucStream &Config)
 {
-    const char *val; //, parms[2048];
-    //int len;
+    const char*  val; 
 
+    std::string libp;
     if (!(val = Config.GetWord()) || !val[0])
     {
         m_log.Emsg("Config", "decisionlib not specified; always caching files");
-        val = "XrdFileCacheAllowAlways";
+        libp = "XrdFileCacheAllowAlways";
+    }
+    else{
+         libp = val;
     }
 
+    const char* params;
+    params = (val[0]) ?  Config.GetWord() : 0;
+
 #if defined(HAVE_VERSIONS)
-    XrdSysPlugin myLib(&m_log, val, "decisionlib", NULL);
+    XrdSysPlugin* myLib = new XrdSysPlugin(&m_log, libp.c_str(), "decisionlib", NULL);
 #else
-    XrdSysPlugin myLib(&m_log, val);
+    XrdSysPlugin* myLib = new XrdSysPlugin(&m_log, libp.c_str());
 #endif
     Decision *(*ep)(XrdSysError&);
-    ep = (Decision *(*)(XrdSysError&))myLib.getPlugin("XrdFileCacheGetDecision");
+    ep = (Decision *(*)(XrdSysError&))myLib->getPlugin("XrdFileCacheGetDecision");
     if (!ep) return false;
 
     Decision * d = ep(m_log);
@@ -304,6 +321,7 @@ Factory::xdlib(XrdOucStream &Config)
        m_log.Emsg("Config", "decisionlib was not able to create a decision object");
        return false;
     }
+    if (params) d->ConfigDecision(params)
     m_decisionpoints.push_back(d);
     return true;
 }
@@ -359,17 +377,13 @@ Factory::ConfigParameters(const char * parameters)
 	}
         else if  ( part == "-exclude" )
         {
-            getline(is, part, ' ');
-	   //  std::string msg = "Set cache directory to " +  part;
-            m_log.Emsg("Config", "Excluded hosts ", part.c_str());          
-            std::stringstream es(part);
-            std::string excHost;
-            while (getline(es, excHost, ':')) {
-                XrdClient::fDefaultExcludedHosts.push_back(excHost);
-            }
+           getline(is, part, ' ');
+           // m_log.Emsg("Config", "Excluded hosts ", part.c_str());          
+           XrdClient::fDefaultExcludedHosts = part;
+           part += ",";
         }
     }
-    //	exit(0);
+
     return true;
 }
 
@@ -409,16 +423,10 @@ Factory::GetXfcFile(XrdOucCacheIO & io)
 bool
 Factory::Decide(std::string &filename)
 {
-    std::vector<Decision*>::const_iterator it;
-    for (it = m_decisionpoints.begin(); it != m_decisionpoints.end(); ++it)
-    {
-        Decision *d = *it;
-        if (!d) continue;
-        if (!d->Decide(filename, *m_output_fs))
-        {
-            return false;
-        }
-    }
+
+    printf("AMT add decision points ... %p\n", (void*)m_xxx);
+    m_xxx->testin();
+
     return true;
 }
 

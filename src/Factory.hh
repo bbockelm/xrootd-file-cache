@@ -78,7 +78,6 @@ private:
     XrdOss *m_output_fs;
     int m_cache_expire;
     std::vector<Decision*> m_decisionpoints;
-
 };
 
 }
