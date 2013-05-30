@@ -17,9 +17,8 @@ class PathsDecision : public XrdFileCache::Decision
 {
 
 public:
-    PathsDecision()
+    PathsDecision(XrdSysError & log) : m_log(log)
     {
-        m_log = new  XrdSysError(0);
     }
 
     virtual
@@ -29,15 +28,17 @@ public:
     Decide(std::string &url, XrdOss &) const
     {
         size_t split_loc = url.rfind("//");
+        split_loc += 1;
         const char* path = &url[split_loc];
 
         if (split_loc == url.npos)
-            return false;
+            return true;
 
         for(std::vector<std::string>::const_iterator i=m_excludes.begin(); i != m_excludes.end(); ++i)
         {
-            if (strncmp(i->c_str(), path, i->size()))
+            if (strncmp(i->c_str(), path, i->size()) == 0)
             {
+                // m_log.Emsg( "Rejecting ", "url ", url.c_str());
                 return false;
             }
         }
@@ -52,7 +53,7 @@ public:
         while (getline(is, part, ' '))
         {
             m_excludes.push_back(part);
-            m_log->Emsg( "Rejecting ", "url ", part.c_str());
+            m_log.Emsg( "Exclude ", "paths ", part.c_str());
         }
 
         return !m_excludes.empty();
@@ -60,6 +61,7 @@ public:
    
 private:
     std::vector<std::string> m_excludes;
+    XrdSysError& m_log;
 
 };
 
@@ -71,9 +73,9 @@ private:
 extern "C"
 {
 XrdFileCache::Decision *
-XrdFileCacheGetDecision(XrdSysError &)
+XrdFileCacheGetDecision(XrdSysError & log)
 {
-    return new PathsDecision();
+    return new PathsDecision(log);
 }
 }
 
