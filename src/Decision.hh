@@ -16,9 +16,6 @@ public:
 
     virtual bool
     ConfigDecision(const char*) { return true; }
-
-protected:
-    XrdSysError* m_log;
 };
 
 }
