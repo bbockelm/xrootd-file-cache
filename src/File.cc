@@ -70,12 +70,12 @@ int File::Read (XrdOucCacheStats &/*Now*/, char *buff, long long off, int size)
     return 0;
     if (m_prefetch)
     {
-    m_log.Emsg("File, ", "Read from Prefetch.");
+        if (Dbg > 1) m_log.Emsg("File, ", "Read from Prefetch.");
         return  m_prefetch->Read(buff, off, size);
     }
     else
     {
-    m_log.Emsg("File, ", "Read from disk.");
+        if (Dbg > 1) m_log.Emsg("File, ", "Read from disk.");
         return m_diskDF->Read(buff, off, size);
     }
 }
