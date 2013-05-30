@@ -69,6 +69,8 @@ int IO::Read (char *buff, long long off, int size)
     {
         retval = m_io.Read(buff, off, size);
         // printf(" read ORIG return val [%d] ...... \n", retval);
+
+        if (Dbg > 1) m_log.Emsg("IO", "Read from origin server.");
         if (retval > 0) bytes_read += retval;
     }
     if (retval <= 0)
