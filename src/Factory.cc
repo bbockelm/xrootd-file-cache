@@ -385,7 +385,7 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-exclude" )
         {
             getline(is, part, ' ');
-            // m_log.Emsg("Config", "Excluded hosts ", part.c_str());
+            m_log.Emsg("Config", "Excluded hosts ", part.c_str());
             XrdClient::fDefaultExcludedHosts = part;
             part += ",";
         }
