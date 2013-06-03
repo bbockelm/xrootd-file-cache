@@ -7,6 +7,7 @@ namespace  XrdFileCache
 {
 extern int Dbg;
 extern std::fstream Rec;
+extern bool FullFetch;
 }
 
 #endif

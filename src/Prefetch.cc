@@ -92,7 +92,7 @@ Prefetch::Run()
         if (m_stop)
         {
             if (Dbg) m_log.Emsg("Run", "Stopping for a clean close");
-            retval = -EINTR;
+            if (FullFetch) retval = -EINTR;
             break;
         }
     }
