@@ -3,25 +3,59 @@
 #include "Prefetch.hh"
 #include "Context.hh"
 
-#include "File.hh"
+#include "Factory.hh"
 
 #include <sstream>
 #include <stdio.h>
+#include <fcntl.h>
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
 #include "XrdSfs/XrdSfsInterface.hh"
+#include "XrdSys/XrdSysPthread.hh"
+#include "XrdOss/XrdOss.hh"
+#include "XrdOuc/XrdOucEnv.hh"
 
 
 using namespace XrdFileCache;
 
-IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache, FilePtr file, XrdSysError &log)
+void *
+PrefetchRunner(void * prefetch_void)
+{
+    Prefetch *prefetch = static_cast<Prefetch *>(prefetch_void);
+    if (prefetch)
+        prefetch->Run();
+    return NULL;
+}
+
+IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &log)
     : m_io(io),
       m_stats(stats),
-      m_file(file),
       m_cache(cache),
+      m_diskDF(0),
       m_log(log)
-{}
+{
+
+    // check file is completed downloaing
+    XrdOucEnv myEnv;
+    std::string fname;
+    Cache::getFilePathFromURL(io.Path(), fname);
+    fname = Factory::GetInstance().GetTempDirectory() + fname;
+    int test_open = -1;  // test is existance of cinfo file
+    {
+        std::string chkname = fname + ".cinfo";
+        XrdOucEnv myEnv;
+        m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+        test_open = m_diskDF->Open(chkname.c_str(), O_RDONLY, 0600, myEnv);
+    }
+
+    if (test_open < 0 )
+    {
+        m_prefetch =   Factory::GetInstance().GetPrefetch(io);
+        pthread_t tid;
+        XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
+    }
+}
 
 XrdOucCacheIO *
 IO::Detach()
@@ -29,11 +63,11 @@ IO::Detach()
     if (Dbg > 1) m_log.Emsg("IO", "Detach ", m_io.Path());
     fflush(stdout);
     XrdOucCacheIO * io = &m_io;
-    if (m_file.get())
+    if (m_prefetch.get())
     {
         // AMT maybe don't have to do this here but automatically in destructor
         //  is valid io still needed for destruction? if not than nothing has to be done here
-        m_file.reset();
+        m_prefetch.reset();
     }
     m_cache.Detach(this); // This will delete us!
     return io;
@@ -50,11 +84,15 @@ IO::Read (char *buff, long long off, int size)
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
 
-
-    if (m_file.get())
+    if (m_prefetch)
     {
-        retval = m_file->Read(m_stats, buff, off, size);
-        // printf("XfcFile read return val [%d] ...... \n", retval);
+        if (Dbg > 1) m_log.Emsg("IO, ", "Read from Prefetch.");
+        retval = m_prefetch->Read(buff, off, size);
+    }
+    else
+    {
+        if (Dbg > 1) m_log.Emsg("File, ", "Read from disk.");
+        retval = m_diskDF->Read(buff, off, size);
     }
 
 
@@ -99,9 +137,9 @@ IO::ReadV (const XrdOucIOVec *readV, int n)
         XrdSfsXferSize size = readV[i].size;
         char * buff = readV[i].data;
         XrdSfsFileOffset off = readV[i].offset;
-        if (m_file.get())
+        if (m_prefetch.get())
         {
-            ssize_t retval = m_file->Read(m_stats, buff, off, size);
+            ssize_t retval = Read(buff, off, size);
             if ((retval > 0) && (retval == size))
             {
                 // TODO: could handle partial reads here

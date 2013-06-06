@@ -12,7 +12,7 @@
 #include "XrdOuc/XrdOucEnv.hh"
 #include "XrdSfs/XrdSfsInterface.hh"
 using namespace XrdFileCache;
-
+/*
 File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile) :
     m_diskDF(0),
     m_prefetch(0),
@@ -34,6 +34,7 @@ File::File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile) :
     }
     if (test >= 0 )
     {
+
         m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         if ( m_diskDF  && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
         {
@@ -66,7 +67,7 @@ File::~File()
 
 
 int
-File::Read (XrdOucCacheStats & /*Now*/, char *buff, long long off, int size)
+File::Read (XrdOucCacheStats &, char *buff, long long off, int size)
 {
     return 0;
     if (m_prefetch)
@@ -80,3 +81,4 @@ File::Read (XrdOucCacheStats & /*Now*/, char *buff, long long off, int size)
         return m_diskDF->Read(buff, off, size);
     }
 }
+*/

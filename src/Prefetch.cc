@@ -162,7 +162,7 @@ Prefetch::Open()
 
     if (!GetTempFilename(temp_path))
     {
-        m_log.Emsg("Open", "Failed to create temporary filename for ", m_input.Path());
+        m_log.Emsg("Open", "Failed to get filename for ", m_input.Path());
         return false;
     }
     if (Dbg) m_log.Emsg("Open", ("Opening temp file " + temp_path).c_str(), " to prefetch file ", m_input.Path());
@@ -174,6 +174,7 @@ Prefetch::Open()
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
     if (!m_output || m_output->Open(temp_path.c_str(), O_WRONLY, 0600, myEnv) < 0)
     {
+        m_log.Emsg("Open", "Failed to create temporary file ", temp_path.c_str());
         return false;
     }
 

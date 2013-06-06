@@ -10,7 +10,7 @@ namespace XrdFileCache
 class Prefetch;
 
 class File
-{
+{/*
 public:
     File(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile);
     virtual ~File();
@@ -23,7 +23,7 @@ public:
 private:
     XrdOssDF* m_diskDF;
     Prefetch* m_prefetch;
-    XrdSysError m_log;
+    XrdSysError m_log;*/
 };
 
 }

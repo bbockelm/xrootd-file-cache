@@ -26,7 +26,7 @@ class Cache;
 class Factory : public XrdOucCache
 {
 
-    friend class Cache;
+    friend class IO;
 
 public:
 
@@ -49,17 +49,19 @@ public:
     XrdOss*
     GetOss() const {return m_output_fs; }
 
+    bool Decide(std::string &);
+
     void TempDirCleanup();
     static Factory &GetInstance();
 
 protected:
 
-    FilePtr GetXfcFile(XrdOucCacheIO &);
-    void Detach(FilePtr);
+    PrefetchPtr GetPrefetch(XrdOucCacheIO &);
+    // void Detach(FilePtr);
 
 private:
 
-    void Detach(XrdOucCacheIO *);
+    // void Detach(XrdOucCacheIO *);
 
     bool ConfigParameters(const char *);
     bool ConfigXeq(char *, XrdOucStream &);
@@ -67,7 +69,6 @@ private:
     bool xdlib(XrdOucStream &);
     bool xexpire(XrdOucStream &);
 
-    bool Decide(std::string &);
 
     void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
 
@@ -80,7 +81,7 @@ private:
     std::string m_config_filename;
     std::string m_temp_directory;
     std::string m_username;
-    FileWeakPtrMap m_file_map;
+    PrefetchWeakPtrMap m_file_map;
     XrdOss *m_output_fs;
     int m_cache_expire;
     std::vector<Decision*> m_decisionpoints;

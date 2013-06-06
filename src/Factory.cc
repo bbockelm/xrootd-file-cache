@@ -18,7 +18,7 @@
 #include "Factory.hh"
 #include "Prefetch.hh"
 #include "Decision.hh"
-#include "File.hh"
+//#include "File.hh"
 #include "Context.hh"
 
 
@@ -394,32 +394,26 @@ Factory::ConfigParameters(const char * parameters)
     return true;
 }
 
-FilePtr
-Factory::GetXfcFile(XrdOucCacheIO & io)
+PrefetchPtr
+Factory::GetPrefetch(XrdOucCacheIO & io)
 {
     std::string filename = io.Path();
     if (Dbg) m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
 
-    if (!Decide(filename))
-    {
-        FilePtr result;
-        return result;
-    }
-
-
+  
     XrdSysMutexHelper monitor(&m_factory_mutex);
-    FileWeakPtrMap::const_iterator it = m_file_map.find(filename);
+    PrefetchWeakPtrMap::const_iterator it = m_file_map.find(filename);
     if (it == m_file_map.end())
     {
-        FilePtr result;
-        result.reset(new File(m_log, *m_output_fs, io));
+        PrefetchPtr result;
+        result.reset(new Prefetch(m_log, *m_output_fs, io));
         m_file_map[filename] = result;
         return result;
     }
-    FilePtr result = it->second.lock();
+    PrefetchPtr result = it->second.lock();
     if (!result)
     {
-        result.reset(new File(m_log, *m_output_fs, io));
+        result.reset(new Prefetch(m_log, *m_output_fs, io));
         m_file_map[filename] = result;
         return result;
     }
@@ -509,3 +503,4 @@ Factory::TempDirCleanup()
         sleep(interval);
     }
 }
+

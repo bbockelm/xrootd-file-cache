@@ -15,14 +15,6 @@
 
 using namespace XrdFileCache;
 
-void *
-PrefetchRunner(void * prefetch_void)
-{
-    Prefetch *prefetch = static_cast<Prefetch *>(prefetch_void);
-    if (prefetch)
-        prefetch->Run();
-    return NULL;
-}
 
 Cache *Cache::m_cache = NULL;
 XrdSysMutex Cache::m_cache_mutex;
@@ -43,23 +35,13 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     Rec << time(NULL)  << " Attach " << io->Path() << std::endl;
     if (io)
     {
-        FilePtr f =   Factory::GetInstance().GetXfcFile(*io);
-
-        if (f.get()) 
-        {
-           // AMT: should thread be  spawned on each Attach() ??
-           pthread_t tid;
-           // Rec << time(NULL) << " Prefetch " << io->Path() << std::endl;
-           XrdSysThread::Run(&tid, PrefetchRunner, (void *)(f->GetPrefetch()), 0, "XrdFileCache Prefetcher");
-           return new IO(*io, m_stats, *this, f,  m_log);
-        }
-        else
-        {
-           m_log.Emsg("Attach", "No caching !!! ", io->Path());
-
-        }
+        return new IO(*io, m_stats, *this, m_log);
     }
-
+    else
+    {
+        m_log.Emsg("Attach", "No caching !!! ", io->Path());
+    }
+    
     m_attached--;
     return io;
 }

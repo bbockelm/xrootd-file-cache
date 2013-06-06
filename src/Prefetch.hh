@@ -16,7 +16,7 @@ namespace XrdFileCache
 
 class Prefetch {
 
-    friend class File;
+    friend class IO;
 
 public:
 

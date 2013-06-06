@@ -6,10 +6,10 @@
 
 namespace XrdFileCache
 {
-class File;
-typedef std::tr1::shared_ptr<File> FilePtr;
-typedef std::tr1::weak_ptr<File> FileWeakPtr;
-typedef std::tr1::unordered_map<std::string, FileWeakPtr> FileWeakPtrMap;
+class Prefetch;
+typedef std::tr1::shared_ptr<Prefetch> PrefetchPtr;
+typedef std::tr1::weak_ptr<Prefetch> PrefetchWeakPtr;
+typedef std::tr1::unordered_map<std::string, PrefetchWeakPtr> PrefetchWeakPtrMap;
 
 class IO;
 class Factory;
