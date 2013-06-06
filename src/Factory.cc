@@ -100,7 +100,6 @@ Factory::Factory()
       m_cache_expire(172800)
 {
     Dbg = 1;
-    FullFetch = false;
 }
 
 extern "C"
@@ -389,13 +388,6 @@ Factory::ConfigParameters(const char * parameters)
             m_log.Emsg("Config", "Excluded hosts ", part.c_str());
             XrdClient::fDefaultExcludedHosts = part;
             part += ",";
-        }
-        else if  ( part == "-fullfetch" )
-        {
-            getline(is, part, ' ');
-            m_log.Emsg("Config", "Enable full prefetch.");
-            FullFetch = true;
-
         }
     }
 
