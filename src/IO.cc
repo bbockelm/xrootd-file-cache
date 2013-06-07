@@ -41,12 +41,13 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &
     std::string fname;
     Cache::getFilePathFromURL(io.Path(), fname);
     fname = Factory::GetInstance().GetTempDirectory() + fname;
-    int test_open = -1;  // test is existance of cinfo file
+    int test_open = -1;  
+    // test is existance of cinfo file
     {
         std::string chkname = fname + ".cinfo";
         XrdOucEnv myEnv;
-        m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
-        test_open = m_diskDF->Open(chkname.c_str(), O_RDONLY, 0600, myEnv);
+        XrdOssDF* testFD  = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+        test_open = testFD->Open(chkname.c_str(), O_RDONLY, 0600, myEnv);
     }
 
     if (test_open < 0 )
@@ -54,6 +55,15 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &
         m_prefetch =   Factory::GetInstance().GetPrefetch(io);
         pthread_t tid;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
+    }
+    else {
+      m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+      if ( m_diskDF && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
+	{
+	  if (Dbg) m_log.Emsg("Attach, ", "read from disk");
+	  Rec << time(NULL) << " disk " << fname << std::endl;
+	  m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
+	}
     }
 }
 
