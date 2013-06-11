@@ -10,7 +10,6 @@
 #include "Cache.hh"
 #include "Factory.hh"
 #include "Prefetch.hh"
-#include "File.hh"
 #include "Context.hh"
 
 using namespace XrdFileCache;
