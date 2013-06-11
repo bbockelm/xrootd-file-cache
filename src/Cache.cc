@@ -71,21 +71,3 @@ Cache::Detach(XrdOucCacheIO* io)
 }
 
 
-// AMT the function is a UTIL, does not have to be in this class
-bool
-Cache::getFilePathFromURL(const char* url, std::string &result)
-{
-    std::string path = url;
-    size_t split_loc = path.rfind("//");
-
-    if (split_loc == path.npos)
-        return false;
-
-    size_t kloc = path.rfind("?");
-    result = path.substr(split_loc+1,kloc-split_loc-1);
-
-    if (kloc == path.npos)
-        return false;
-
-    return true;
-}

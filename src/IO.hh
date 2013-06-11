@@ -60,8 +60,8 @@ protected:
     IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, XrdSysError &);
 
 private:
-
     ~IO() {}
+    bool getFilePathFromURL(const char* url, std::string& res);
 
     XrdOucCacheIO & m_io;
     XrdOucCacheStats & m_stats;

@@ -397,9 +397,9 @@ Factory::ConfigParameters(const char * parameters)
 }
 
 PrefetchPtr
-Factory::GetPrefetch(XrdOucCacheIO & io)
+Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
 {
-    std::string filename = io.Path();
+   //    std::string filename = io.Path();
     if (Dbg) m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
 
   
@@ -408,14 +408,14 @@ Factory::GetPrefetch(XrdOucCacheIO & io)
     if (it == m_file_map.end())
     {
         PrefetchPtr result;
-        result.reset(new Prefetch(m_log, *m_output_fs, io));
+        result.reset(new Prefetch(m_log, *m_output_fs, io, filename));
         m_file_map[filename] = result;
         return result;
     }
     PrefetchPtr result = it->second.lock();
     if (!result)
     {
-        result.reset(new Prefetch(m_log, *m_output_fs, io));
+       result.reset(new Prefetch(m_log, *m_output_fs, io, filename));
         m_file_map[filename] = result;
         return result;
     }

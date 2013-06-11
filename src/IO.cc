@@ -39,7 +39,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &
     // check file is completed downloaing
     XrdOucEnv myEnv;
     std::string fname;
-    Cache::getFilePathFromURL(io.Path(), fname);
+    getFilePathFromURL(io.Path(), fname);
     fname = Factory::GetInstance().GetTempDirectory() + fname;
     int test_open = -1;  
     // test is existance of cinfo file
@@ -52,7 +52,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &
 
     if (test_open < 0 )
     {
-        m_prefetch =   Factory::GetInstance().GetPrefetch(io);
+       m_prefetch =   Factory::GetInstance().GetPrefetch(io, fname);
         pthread_t tid;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
     }
@@ -183,3 +183,21 @@ IO::ReadV (const XrdOucIOVec *readV, int n)
 }
 #endif
 
+
+bool
+IO::getFilePathFromURL(const char* url, std::string &result)
+{
+    std::string path = url;
+    size_t split_loc = path.rfind("//");
+
+    if (split_loc == path.npos)
+        return false;
+
+    size_t kloc = path.rfind("?");
+    result = path.substr(split_loc+1,kloc-split_loc-1);
+
+    if (kloc == path.npos)
+        return false;
+
+    return true;
+}

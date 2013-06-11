@@ -56,7 +56,7 @@ public:
 
 protected:
 
-    PrefetchPtr GetPrefetch(XrdOucCacheIO &);
+   PrefetchPtr GetPrefetch(XrdOucCacheIO &, std::string& filePath);
     // void Detach(FilePtr);
 
 private:

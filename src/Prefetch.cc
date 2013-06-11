@@ -16,7 +16,7 @@ using namespace XrdFileCache;
 
 const size_t Prefetch::m_buffer_size = 64*1024;
 
-Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
+Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
       m_output(NULL),
       m_input(inputIO),
@@ -27,7 +27,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO)
       m_stop(false),
       m_cond(0), // We will explicitly lock the condition before use.
       m_log(0, "Prefetch_"),
-      m_temp_filename("")
+      m_temp_filename(disk_file_path)
 {
     m_log.logger(log.logger());
 
@@ -136,15 +136,6 @@ Prefetch::Join()
     }
 }
 
-bool
-Prefetch::GetTempFilename(std::string &result)
-{
-    Cache::getFilePathFromURL(m_input.Path(), result);
-    std::string tmp_directory = Factory::GetInstance().GetTempDirectory();
-    result = tmp_directory + result;
-
-    return true;
-}
 
 bool
 Prefetch::Open()
@@ -158,29 +149,22 @@ Prefetch::Open()
     // Finalize temporary turned on in case of exception.
     m_finalized = true;
 
-    std::string temp_path;
 
-    if (!GetTempFilename(temp_path))
-    {
-        m_log.Emsg("Open", "Failed to get filename for ", m_input.Path());
-        return false;
-    }
-    if (Dbg) m_log.Emsg("Open", ("Opening temp file " + temp_path).c_str(), " to prefetch file ", m_input.Path());
+    if (Dbg) m_log.Emsg("Open", ("Opening temp file " + m_temp_filename ).c_str(), " to prefetch file ", m_input.Path());
 
     // Create the file itself.
     XrdOucEnv myEnv;
 
-    m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), temp_path.c_str(), 0600, myEnv, XRDOSS_mkpath);
+    m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), m_temp_filename.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
-    if (!m_output || m_output->Open(temp_path.c_str(), O_WRONLY, 0600, myEnv) < 0)
+    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_WRONLY, 0600, myEnv) < 0)
     {
-        m_log.Emsg("Open", "Failed to create temporary file ", temp_path.c_str());
+        m_log.Emsg("Open", "Failed to create temporary file ", m_temp_filename.c_str());
         return false;
     }
 
     // If the file is pre-existing, pick up from where we left off.
     struct stat fileStat;
-    m_temp_filename = temp_path;
     if (m_output->Fstat(&fileStat) == 0)
     {
         m_offset = fileStat.st_size;

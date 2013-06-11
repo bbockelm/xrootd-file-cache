@@ -31,7 +31,6 @@ public:
 
     virtual XrdOucCache*
     Create(XrdOucCache::Parms&, XrdOucCacheIO::aprParms*) {return NULL; }
-    static bool getFilePathFromURL(const char* url, std::string& res);
 
 protected:
 
