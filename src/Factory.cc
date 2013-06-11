@@ -209,6 +209,12 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if (retval)
         retval = ConfigParameters(parameters);
 
+    if (!Rec.is_open())
+    {
+       m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log");
+       Rec.open("/tmp/xroot_cache.log");
+    }
+
     m_log.Emsg("Config", "Cache user name ", m_username.c_str());
     m_log.Emsg("Config", "Cache temporary directory: ", m_temp_directory.c_str());
     {
@@ -221,6 +227,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
         m_log.Emsg("Config", "Cache expire ", xss.str().c_str());
     }
 
+           
     if (retval)
     {
         XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str(), NULL);
@@ -375,12 +382,7 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
             if (Rec.is_open())
-                m_log.Emsg("Config", "Write record in file", part.c_str());
-            else
-            {
-                m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log");
-                Rec.open("/tmp/xroot_cache.log");
-            }
+                m_log.Emsg("Config", "Write record in file", part.c_str());           
         }
         else if  ( part == "-exclude" )
         {
