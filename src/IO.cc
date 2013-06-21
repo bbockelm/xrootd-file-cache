@@ -114,11 +114,19 @@ IO::Detach()
  
     char tbuf[64];
     Time(&tbuf[0]);
-    char rbuf[1024];
-    sprintf(rbuf, "NumHits [%d], NumMissed [%d], BytesGet[%lld], BytesPass[%lld], BytesWrite[%lld] %s", 
+    char Hbuf[512];
+    char Bbuf[512];
+    sprintf(Hbuf, "NumHits[%d] NumHitsPrefetch[%d] NumHitsDisk[%d], NumMissed [%d],BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld], BytesPass[%lld], BytesWrite[%lld] %s",
             m_stats.Hits,
-            m_stats.Miss,
+            m_stats.HitsPrefetch,
+            m_stats.HitsDisk,
+            m_stats.Miss
+            );
+
+    sprintf(Bbuf, "BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld], BytesPass[%lld], BytesWrite[%lld] %s",
             m_stats.BytesGet, 
+            m_stats.BytesGetPrefetch, 
+            m_stats.BytesGetDisk, 
             m_stats.BytesPass, 
             bytesWrite,
             m_io.Path()
@@ -151,21 +159,32 @@ IO::Read (char *buff, long long off, int size)
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
 
+    Stats stat;
+
     if (m_prefetch)
     {
         if (Dbg > 1) m_log.Emsg("IO, ", "Read from Prefetch.");
         retval = m_prefetch->Read(buff, off, size);
+        if (retval > 0) {
+           stat.HitsPrefetch = 1;
+           stat.BytesGetPrefetch = retval;
+        }
     }
     else
     {
         if (Dbg > 1) m_log.Emsg("File, ", "Read from disk.");
         retval = m_diskDF->Read(buff, off, size);
+
         if (retval != size) {
             m_log.Emsg("IO, ", "Read from Disk error.");
         }
+        if (retval > 0) {
+           stat.HitsDisk = 1;
+           stat.BytesGetDisk = retval;
+        }
+
     }
 
-    XrdOucCacheStats stat;
 
     if (retval > 0)
     {
@@ -173,7 +192,7 @@ IO::Read (char *buff, long long off, int size)
         stat.BytesRead = retval;
         stat.Hits = 1;
         ss.clear();
-ss << retval;
+        ss << retval;
         m_log.Emsg("IO, ", "Read Hit! ", ss.str().c_str());
         bytes_read += retval;
         buff += retval;
@@ -199,7 +218,7 @@ ss << retval;
         m_log.Emsg("IO", "Read error, bytes read ", ss.str().c_str());
     }
 
-    m_stats.Add(stat);
+    m_stats.AddStat(stat);
 
     return (retval < 0) ? retval : bytes_read;
 
