@@ -6,7 +6,7 @@
 namespace  XrdFileCache
 {
 extern int Dbg;
-extern std::fstream Rec;
+extern FILE* Rec;
 }
 
 #endif

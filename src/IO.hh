@@ -60,11 +60,12 @@ protected:
     IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, XrdSysError &);
 
 private:
-    ~IO() {}
+   ~IO();
     bool getFilePathFromURL(const char* url, std::string& res);
 
     XrdOucCacheIO & m_io;
-    XrdOucCacheStats & m_stats;
+    XrdOucCacheStats & m_statsGlobal;
+    XrdOucCacheStats   m_stats;
     Cache & m_cache;
     XrdOssDF* m_diskDF;
     PrefetchPtr m_prefetch;
