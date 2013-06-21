@@ -30,6 +30,7 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO, s
       m_temp_filename(disk_file_path)
 {
     m_log.logger(log.logger());
+    m_log.SetPrefix(m_input.Path());
 
     m_xrdClient = new XrdClient(m_input.Path());
 
@@ -157,7 +158,7 @@ Prefetch::Open()
 
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), m_temp_filename.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
-    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_WRONLY, 0600, myEnv) < 0)
+    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_RDWR, 0777, myEnv) < 0)
     {
         m_log.Emsg("Open", "Failed to create temporary file ", m_temp_filename.c_str());
         return false;
@@ -215,6 +216,10 @@ Prefetch::Fail(bool cleanup)
 {
     // Prefetch did not competed download.
     // Remove cached file.
+           
+    std::stringstream ss;
+    ss << "Fail " << m_temp_filename << " cleanup = " << cleanup << " finalised = " << m_finalized <<std::endl;
+    if (Dbg) m_log.Emsg("Fail ", ss.str().c_str());
 
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
@@ -224,7 +229,6 @@ Prefetch::Fail(bool cleanup)
 
     if (m_output)
     {
-        if (Dbg) m_log.Emsg("Fail", "Close m_output");
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -270,8 +274,10 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
     {
         ss << ", size  = " << size;
-        if (Dbg > 1) m_log.Emsg("Read", "read complete size", ss.str().c_str());
-        return m_output->Read(buff, offset, size);
+        int res =  m_output->Read(buff, offset, size);
+	ss <<  ", Read res = " << res;
+        if (Dbg > 1) m_log.Emsg("Read", "read complete size .... ", ss.str().c_str());
+	return res;
     }
     else
     {
