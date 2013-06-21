@@ -14,7 +14,7 @@
 #include "XrdOuc/XrdOucEnv.hh"
 using namespace XrdFileCache;
 
-const size_t Prefetch::m_buffer_size = 64*1024;
+const size_t Prefetch::m_buffer_size = 512*1024;
 
 Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
