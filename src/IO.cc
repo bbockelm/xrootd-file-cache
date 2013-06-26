@@ -116,24 +116,24 @@ IO::Detach()
     Time(&tbuf[0]);
     char Hbuf[512];
     char Bbuf[512];
-    sprintf(Hbuf, "NumHits[%d] NumHitsPrefetch[%d] NumHitsDisk[%d], NumMissed [%d],BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld], BytesPass[%lld], BytesWrite[%lld] %s",
+    sprintf(Hbuf, "NumHits[%d] NumHitsPrefetch[%d] NumHitsDisk[%d] NumMissed[%d] ",
             m_stats.Hits,
             m_stats.HitsPrefetch,
             m_stats.HitsDisk,
             m_stats.Miss
             );
 
-    sprintf(Bbuf, "BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld], BytesPass[%lld], BytesWrite[%lld] %s",
+    sprintf(Bbuf, "bytes = BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld] BytesPass[%lld] BytesWrite[%lld]",
             m_stats.BytesGet, 
             m_stats.BytesGetPrefetch, 
             m_stats.BytesGetDisk, 
             m_stats.BytesPass, 
-            bytesWrite,
-            m_io.Path()
+            bytesWrite
             );
-    m_log.Emsg("IO", "Detach ", rbuf);
 
-    fprintf(Rec, "%s %s\n", &tbuf[0], &rbuf[0]);
+    m_log.Emsg("IO Detach", &Hbuf[0], &Bbuf[0]);
+
+    fprintf(Rec, "%s %s %s %s\n", &tbuf[0], &Hbuf[0], &Bbuf[0], m_io.Path());
     fflush(Rec);
 
     XrdOucCacheIO * io = &m_io;
@@ -143,7 +143,10 @@ IO::Detach()
         //  is valid io still needed for destruction? if not than nothing has to be done here
         m_prefetch.reset();
     }
-
+    else
+      {
+	m_diskDF->Close();
+      }
     m_cache.Detach(this); // This will delete us!
     return io;
 }
