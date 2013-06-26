@@ -188,11 +188,12 @@ Prefetch::Close()
 
     if (m_output)
     {
+      /*
         if (Dbg) m_log.Emsg("Close", "Close m_output");
         m_output->Close();
         delete m_output;
         m_output = NULL;
-
+      */
         // AMT create a file with cinfo extension, to mark file has completed
         //
         if (m_started && !m_stop)
@@ -246,6 +247,11 @@ Prefetch::~Prefetch()
 {
     if (Dbg) m_log.Emsg("Destructor", "Destroying Prefetch Object");
     Join();
+
+    if (Dbg) m_log.Emsg("Close", "Close m_output");                                                                                                                                      
+    m_output->Close();                                                                                                                                                                   
+    delete m_output;                                                                                                                                                                     
+    m_output = NULL;    
 }
 
 ssize_t
