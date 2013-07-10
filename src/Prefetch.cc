@@ -14,7 +14,7 @@
 #include "XrdOuc/XrdOucEnv.hh"
 using namespace XrdFileCache;
 
-const size_t Prefetch::m_buffer_size = 512*1024;
+const size_t Prefetch::m_buffer_size = 64*1024;
 
 Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
@@ -28,12 +28,6 @@ Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_f
       m_cond(0), // We will explicitly lock the condition before use.
       m_temp_filename(disk_file_path)
 {
-<<<<<<< HEAD
-=======
-    m_log.logger(log.logger());
-    m_log.SetPrefix(m_input.Path());
-
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
     m_xrdClient = new XrdClient(m_input.Path());
 
     if ( !m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
@@ -170,11 +164,7 @@ Prefetch::Open()
 
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), m_temp_filename.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
-<<<<<<< HEAD
     if (!m_output || m_output->Open(m_temp_filename.c_str(), O_RDWR, 0600, myEnv) < 0)
-=======
-    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_RDWR, 0777, myEnv) < 0)
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
     {
         aMsgIO(kError, &m_input, "Prefetch::Open() fail to get FD");
         return false;
@@ -207,15 +197,6 @@ Prefetch::Close()
 
     if (m_output)
     {
-<<<<<<< HEAD
-=======
-      /*
-        if (Dbg) m_log.Emsg("Close", "Close m_output");
-        m_output->Close();
-        delete m_output;
-        m_output = NULL;
-      */
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
         // AMT create a file with cinfo extension, to mark file has completed
         //
         if (m_started && !m_stop)
@@ -239,10 +220,6 @@ Prefetch::Fail(bool cleanup)
 {
     // Prefetch did not competed download.
     // Remove cached file.
-           
-    std::stringstream ss;
-    ss << "Fail " << m_temp_filename << " cleanup = " << cleanup << " finalised = " << m_finalized <<std::endl;
-    if (Dbg) m_log.Emsg("Fail ", ss.str().c_str());
 
     XrdSysCondVarHelper monitor(m_cond);
     aMsgIO(kWarning, &m_input, "Prefetch::Fail() cleanup = %d, stated = %d, finalised = %d", cleanup, m_finalized, m_started);
@@ -254,10 +231,7 @@ Prefetch::Fail(bool cleanup)
 
     if (m_output)
     {
-<<<<<<< HEAD
         aMsgIO(kWarning, &m_input, "Prefetch::Fail() close output.");
-=======
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -271,19 +245,6 @@ Prefetch::Fail(bool cleanup)
     return true;
 }
 
-<<<<<<< HEAD
-=======
-Prefetch::~Prefetch()
-{
-    if (Dbg) m_log.Emsg("Destructor", "Destroying Prefetch Object");
-    Join();
-
-    if (Dbg) m_log.Emsg("Close", "Close m_output");                                                                                                                                      
-    m_output->Close();                                                                                                                                                                   
-    delete m_output;                                                                                                                                                                     
-    m_output = NULL;    
-}
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 
 ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
@@ -304,16 +265,8 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
     {
-<<<<<<< HEAD
         aMsgIO(kDebug, &m_input, "Prefetch::Read() read complete size ");
         return m_output->Read(buff, offset, size);
-=======
-        ss << ", size  = " << size;
-        int res =  m_output->Read(buff, offset, size);
-	ss <<  ", Read res = " << res;
-        if (Dbg > 1) m_log.Emsg("Read", "read complete size .... ", ss.str().c_str());
-	return res;
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
     }
     else
     {

@@ -93,17 +93,12 @@ TempDirCleanupThread(void*)
 
 
 Factory::Factory()
-    : m_log(0, "XrdFileCache_"),
+    : m_log(0, "XFC_"),
       m_temp_directory("/var/tmp/xrootd-file-cache"),
       m_username("nobody"),
       m_cache_expire(172800)
 {
-<<<<<<< HEAD
     Dbg = kInfo;
-=======
-    Dbg = 1;
-    Rec = NULL;
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 }
 
 extern "C"
@@ -142,7 +137,7 @@ Factory::GetInstance()
 XrdOucCache *
 Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 {
-    m_log.Emsg("Create", "Creating a new cache object.");
+    aMsg(kInfo, "Factory::Create() new cache object");
     return new Cache(m_stats);
 }
 
@@ -150,7 +145,7 @@ bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
     m_log.logger(logger);
-    m_log.Emsg("Config", "Configuring a file cache.");
+
 
     const char * cache_env;
     if (!(cache_env = getenv("XRDPOSIX_CACHE")) || !*cache_env)
@@ -161,14 +156,14 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
 
     if (!config_filename || !*config_filename)
     {
-        m_log.Emsg("Config", "Configuration file not specified.");
+        aMsg(kWarning, "Factory::Config() configuration file not specified.");
         return false;
     }
 
     int fd;
     if ( (fd = open(config_filename, O_RDONLY, 0)) < 0)
     {
-        m_log.Emsg("Config", errno, "open config file", config_filename);
+        aMsg(kError, "Factory::Config() can't open configuration file %s", config_filename);
         return false;
     }
 
@@ -197,7 +192,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if ((retc = Config.LastError()))
     {
         retval = false;
-        m_log.Emsg("Config", retc, "read config file", config_filename);
+        aMsg(kError, "Factory::Config() error in parsing");
     }
 
     Config.Close();
@@ -207,39 +202,29 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if (retval)
         retval = ConfigParameters(parameters);
 
-    if (!Rec)
+    if (!Rec.is_open())
     {
-       m_log.Emsg("Config", "Write record to STDOUT.");
-       Rec = stdout;
+       // AMT deside if records  are still necesasry, maybe debug stting 
+       // debug level is enough
+       Rec.open("/tmp/xroot_cache.log");
     }
 
-    m_log.Emsg("Config", "Cache user name ", m_username.c_str());
-    m_log.Emsg("Config", "Cache temporary directory: ", m_temp_directory.c_str());
-    {
-        std::stringstream xss;  xss << Dbg;
-        m_log.Emsg("Config", "Cache debug ", xss.str().c_str());
-    }
-
-    {
-        std::stringstream xss;  xss << m_cache_expire << "[s]";
-        m_log.Emsg("Config", "Cache expire ", xss.str().c_str());
-    }
-
+    aMsg(kInfo,"Factory::Config() Cache user name %s", m_username.c_str());
+    aMsg(kInfo,"Factory::Config() Cache temporary directory %s", m_temp_directory.c_str());
+    aMsg(kInfo,"Factory::Config() Cache debug level %d", Dbg);
+    aMsg(kInfo,"Factory::Config() Cache expire in %d [s]",m_cache_expire );
            
     if (retval)
     {
         XrdOss *output_fs = XrdOssGetSS(m_log.logger(), m_config_filename.c_str(), m_osslib_name.c_str(), NULL);
-        if (!output_fs)
-        {
-            m_log.Emsg("Factory_Attach", "Unable to create a OSS object.");
+        if (!output_fs) {
+            aMsg(kError, "Factory::Config() Unable to create a OSS object");
             retval = false;
         }
         m_output_fs = output_fs;
     }
 
-    if (retval) m_log.Emsg("Config", "Configuration of factory successful");
-    else m_log.Emsg("Config", "Configuration of factory failed");
-
+    aMsg(kInfo, "Factory::Config() Configuration = %s ", retval ? "Success" : "Fail");
     return retval;
 }
 
@@ -268,7 +253,7 @@ Factory::xolib(XrdOucStream &Config)
 
     if (!(val = Config.GetWord()) || !val[0])
     {
-        m_log.Emsg("Config", "osslib not specified");
+        aMsg(kInfo, "Factory::Config() osslib not specified");
         return false;
     }
 
@@ -277,7 +262,7 @@ Factory::xolib(XrdOucStream &Config)
     *(parms+pl) = ' ';
     if (!Config.GetRest(parms+pl+1, sizeof(parms)-pl-1))
     {
-        m_log.Emsg("Config", "osslib parameters too long");
+        aMsg(kError, "Factory::Config() osslib parameters too long");
         return false;
     }
 
@@ -304,7 +289,7 @@ Factory::xdlib(XrdOucStream &Config)
     std::string libp;
     if (!(val = Config.GetWord()) || !val[0])
     {
-        m_log.Emsg("Config", "decisionlib not specified; always caching files");
+        aMsg(kInfo, " Factory:;Config() decisionlib not specified; always caching files");
         libp = "XrdFileCacheAllowAlways";
     }
     else
@@ -327,7 +312,7 @@ Factory::xdlib(XrdOucStream &Config)
     Decision * d = ep(m_log);
     if (!d)
     {
-        m_log.Emsg("Config", "decisionlib was not able to create a decision object");
+        aMsg(kError, "Factory::Config() decisionlib was not able to create a decision object");
         return false;
     }
     if (params)
@@ -342,7 +327,6 @@ Factory::ConfigParameters(const char * parameters)
 {
     if (!parameters || (!(*parameters)))
     {
-        m_log.Emsg("Config", "No parameters passed; using defaults");
         return true;
     }
 
@@ -376,15 +360,9 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-log" )
         {
             getline(is, part, ' ');
-<<<<<<< HEAD
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
             if (Rec.is_open())    
               aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
-=======
-            Rec = fopen(part.c_str(), "a+");//open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
-            if (Rec)
-                m_log.Emsg("Config", "Write record in file", part.c_str());           
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
         }
         else if  ( part == "-exclude" )
         {
@@ -401,12 +379,7 @@ Factory::ConfigParameters(const char * parameters)
 PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
 {
-<<<<<<< HEAD
     aMsg(kInfo, "Factory::GetPrefetch(), object requested for %s ", filename.c_str());
-=======
-   //    std::string filename = io.Path();
-    if (Dbg) m_log.Emsg("Prefetch from global map", "Prefetch object requested for ", filename.c_str());
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 
   
     XrdSysMutexHelper monitor(&m_factory_mutex);

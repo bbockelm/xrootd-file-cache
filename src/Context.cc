@@ -15,11 +15,10 @@
 
 namespace XrdFileCache
 {
-<<<<<<< HEAD
 LogLevel Dbg;
 std::fstream Rec;
 
-const char* const s_levelNames[] = { " Dump", "Debug"," Info", "Warnn", "Error" };
+const char* const s_levelNames[] = { "Dump ", "Debug","Info ", "Warn ", "Err  " };
 
 const char* levelName(LogLevel iLevel) {
    return s_levelNames[iLevel];
@@ -88,8 +87,4 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
    }
 }
 
-=======
-int Dbg;
-FILE* Rec;
->>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 }
