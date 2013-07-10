@@ -15,6 +15,7 @@ class XrdOucCacheIO;
 
 
 namespace  XrdFileCache
+<<<<<<< HEAD
 { 
 enum LogLevel {
    kDump,
@@ -30,6 +31,11 @@ extern std::fstream Rec;
 const char* levelName(LogLevel);
 void strprintf(LogLevel level, const char* fmt, ...);
 void strprintfIO(LogLevel level,  XrdOucCacheIO* io, const char* fmt, ...);
+=======
+{
+extern int Dbg;
+extern FILE* Rec;
+>>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 }
 
 #endif

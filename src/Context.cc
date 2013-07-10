@@ -15,6 +15,7 @@
 
 namespace XrdFileCache
 {
+<<<<<<< HEAD
 LogLevel Dbg;
 std::fstream Rec;
 
@@ -87,4 +88,8 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
    }
 }
 
+=======
+int Dbg;
+FILE* Rec;
+>>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 }

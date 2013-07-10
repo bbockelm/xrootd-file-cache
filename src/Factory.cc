@@ -98,7 +98,12 @@ Factory::Factory()
       m_username("nobody"),
       m_cache_expire(172800)
 {
+<<<<<<< HEAD
     Dbg = kInfo;
+=======
+    Dbg = 1;
+    Rec = NULL;
+>>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 }
 
 extern "C"
@@ -202,10 +207,10 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if (retval)
         retval = ConfigParameters(parameters);
 
-    if (!Rec.is_open())
+    if (!Rec)
     {
-       m_log.Emsg("Config", "Write record in default file /tmp/xroot_cache.log");
-       Rec.open("/tmp/xroot_cache.log");
+       m_log.Emsg("Config", "Write record to STDOUT.");
+       Rec = stdout;
     }
 
     m_log.Emsg("Config", "Cache user name ", m_username.c_str());
@@ -371,9 +376,15 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-log" )
         {
             getline(is, part, ' ');
+<<<<<<< HEAD
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
             if (Rec.is_open())    
               aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
+=======
+            Rec = fopen(part.c_str(), "a+");//open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
+            if (Rec)
+                m_log.Emsg("Config", "Write record in file", part.c_str());           
+>>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
         }
         else if  ( part == "-exclude" )
         {
@@ -390,7 +401,12 @@ Factory::ConfigParameters(const char * parameters)
 PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
 {
+<<<<<<< HEAD
     aMsg(kInfo, "Factory::GetPrefetch(), object requested for %s ", filename.c_str());
+=======
+   //    std::string filename = io.Path();
+    if (Dbg) m_log.Emsg("Prefetch from global map", "Prefetch object requested for ", filename.c_str());
+>>>>>>> bb8576b05d95c2cdb146836a89a728859bbab5a2
 
   
     XrdSysMutexHelper monitor(&m_factory_mutex);
