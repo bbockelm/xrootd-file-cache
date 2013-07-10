@@ -20,7 +20,7 @@ class Prefetch {
 
 public:
 
-   Prefetch(XrdSysError &log, XrdOss& outputFS, XrdOucCacheIO & inputFile, std::string& path);
+   Prefetch(XrdOss& outputFS, XrdOucCacheIO & inputFile, std::string& path);
     ~Prefetch();
 
     void Run();
@@ -35,7 +35,6 @@ private:
 
     inline off_t
     GetOffset() {return __sync_fetch_and_or(&m_offset, 0); }
-   //   bool GetTempFilename(std::string&);
 
     XrdOss & m_output_fs;
 
@@ -51,7 +50,6 @@ private:
     bool m_finalized;
     bool m_stop;
     XrdSysCondVar m_cond;
-    XrdSysError m_log;
     std::string m_temp_filename;
 
     bool Open();

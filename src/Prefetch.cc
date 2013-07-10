@@ -16,7 +16,7 @@ using namespace XrdFileCache;
 
 const size_t Prefetch::m_buffer_size = 64*1024;
 
-Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
+Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
       m_output(NULL),
       m_input(inputIO),
@@ -26,17 +26,25 @@ Prefetch::Prefetch(XrdSysError &log, XrdOss &outputFS, XrdOucCacheIO &inputIO, s
       m_finalized(false),
       m_stop(false),
       m_cond(0), // We will explicitly lock the condition before use.
-      m_log(0, "Prefetch_"),
       m_temp_filename(disk_file_path)
 {
-    m_log.logger(log.logger());
-
     m_xrdClient = new XrdClient(m_input.Path());
 
     if ( !m_xrdClient->Open(0, kXR_async) || m_xrdClient->LastServerResp()->status != kXR_ok)
     {
-        m_log.Emsg("Constructor", "Client error ", m_input.Path());
+      aMsgIO(kDebug, &m_input, "Prefetch::Prefetch() Client error.");
     }
+}
+
+Prefetch::~Prefetch()
+{ 
+    aMsgIO(kDebug, &m_input, "Prefetch::~Prefetch() destroying Prefetch Object");
+    Join();
+
+    aMsgIO(kWarning, &m_input, "Prefetch::~Prefetch close disk file");
+    m_output->Close();
+    delete m_output;
+    m_output = NULL;
 }
 
 void
@@ -50,83 +58,81 @@ Prefetch::CloseCleanly()
 void
 Prefetch::Run()
 {
-    if (!Open())
-        return;
+   if (!Open())
+      return;
 
-    if (Dbg) m_log.Emsg("Run", "Beginning prefetch of ", m_input.Path());
-    std::vector<char> buff;
-    buff.reserve(m_buffer_size);
+   aMsgIO(kDebug, &m_input, "Prefetch::Run()");
 
-    int retval = 0;
-    // AMT
-    while (0 != (retval = m_xrdClient->Read(&buff[0], m_offset, m_buffer_size)))
-    {
-        if ((retval < 0) && (retval != -EINTR))
-        {
-            break;
-        }
+   std::vector<char> buff;
+   buff.reserve(m_buffer_size);
 
-        int buffer_remaining = retval;
-        int buffer_offset = 0;
+   int retval = 0;
+   // AMT
+   while (0 != (retval = m_xrdClient->Read(&buff[0], m_offset, m_buffer_size)))
+   {
+      if ((retval < 0) && (retval != -EINTR))
+      {
+         break;
+      }
 
-        while ((buffer_remaining > 0) && // There is more to be written
-               (((retval = m_output->Write(&buff[buffer_offset], m_offset, buffer_remaining)) != -1) || (errno == EINTR)))  // Write occurs without an error
-        {
-            buffer_remaining -= retval;
-            buffer_offset += retval;
-            __sync_fetch_and_add(&m_offset, retval);
-        }
-        if (retval < 0)
-        {
-            break;
-        }
+      int buffer_remaining = retval;
+      int buffer_offset = 0;
 
-        if (m_offset % (10*1024*1024) == 0)
-        {
-            std::stringstream ss;
-            ss << "Prefetched " << (m_offset/(1024*1024)) << " MB";
-            if (Dbg > 1) m_log.Emsg("Fetching", ss.str().c_str());
-        }
-        // Note we don't lock read-access, as this will only ever go from 0 to 1
-        // Reading during a partial write is OK in this case.
-        if (m_stop)
-        {
-            if (Dbg) m_log.Emsg("Run", "Stopping for a clean close");
-            retval = -EINTR;
-            break;
-        }
-    }
+      while ((buffer_remaining > 0) && // There is more to be written
+             (((retval = m_output->Write(&buff[buffer_offset], m_offset, buffer_remaining)) != -1) || (errno == EINTR)))  // Write occurs without an error
+      {
+         buffer_remaining -= retval;
+         buffer_offset += retval;
+         __sync_fetch_and_add(&m_offset, retval);
+      }
+      if (retval < 0)
+      {
+         break;
+      }
 
-    if (retval < 0)
-    {
-        if (Dbg) m_log.Emsg("Run", retval, "Failure prefetching file");
-        m_stop = true;
-        Fail(retval != -EINTR);
-    }
+      if (m_offset % (10*1024*1024) == 0)
+      {
+         aMsgIO(kDump, &m_input, "Prefetch::Run() Prefetch %d MB", m_offset/(1024*1024));
+      }
+      // Note we don't lock read-access, as this will only ever go from 0 to 1
+      // Reading during a partial write is OK in this case.
+      if (m_stop)
+      {
+         aMsgIO(kInfo, &m_input, "Prefetch::Run() %s", "stopping for a clean cause");
+         retval = -EINTR;
+         break;
+      }
+   }
 
-    Close();
+   if (retval < 0)
+   {
+      aMsgIO(kError, &m_input, "Prefetch::Run()  failure prefetching file, retval = %d", retval);
+      m_stop = true;
+      Fail(retval != -EINTR);
+   }
+
+   Close();
 }
 
 void
 Prefetch::Join()
 {
-    if (Dbg) m_log.Emsg("Join", "Going to lock ...");
+    aMsgIO(kDebug, &m_input, "Prefetch::Join() going to lock");
 
     XrdSysCondVarHelper monitor(m_cond);
     if (m_finalized)
     {
-        if (Dbg) m_log.Emsg("Join", "Prefetch is already finalized");
+        aMsgIO(kDebug, &m_input, "Prefetch::Join() already finalized");
         return;
     }
     else if (m_started)
     {
-        if (Dbg) m_log.Emsg("Join", "Waiting until prefetch finishes");
+        aMsgIO(kDebug, &m_input, "Prefetch::Join() waiting");
         m_cond.Wait();
-        if (Dbg) m_log.Emsg("Join", "Prefetch finished");
     }
     else
     {
-        if (Dbg) m_log.Emsg("Join", "Prefetch not started - running it before Joining");
+        aMsgIO(kDebug, &m_input, "Prefetch::Join() not started - running it before Joining");
         monitor.UnLock();
         // Because we have unlocked the mutex, someone else may be
         // able to race us and Run - causing us to exit early.
@@ -150,16 +156,17 @@ Prefetch::Open()
     m_finalized = true;
 
 
-    if (Dbg) m_log.Emsg("Open", ("Opening temp file " + m_temp_filename ).c_str(), " to prefetch file ", m_input.Path());
+    aMsgIO(kDebug, &m_input, "Prefetch::Open() open disk file");
+
 
     // Create the file itself.
     XrdOucEnv myEnv;
 
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), m_temp_filename.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_output = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
-    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_WRONLY, 0600, myEnv) < 0)
+    if (!m_output || m_output->Open(m_temp_filename.c_str(), O_RDWR, 0600, myEnv) < 0)
     {
-        m_log.Emsg("Open", "Failed to create temporary file ", m_temp_filename.c_str());
+        aMsgIO(kError, &m_input, "Prefetch::Open() fail to get FD");
         return false;
     }
 
@@ -169,7 +176,9 @@ Prefetch::Open()
     {
         m_offset = fileStat.st_size;
         std::stringstream ss; ss << m_offset;
-        if(m_offset) { if (Dbg) m_log.Emsg("Open", "Pickup where we left off. Offset = ", ss.str().c_str()); }
+        if(m_offset) { 
+            aMsgIO(kDebug, &m_input, "Prefetch::Open() pickup where we left of %d",  m_offset);
+        }
     }
 
     m_finalized = false;
@@ -179,6 +188,7 @@ Prefetch::Open()
 bool
 Prefetch::Close()
 {
+    aMsgIO(kInfo, &m_input, "Prefetch::Close()");
     XrdSysCondVarHelper monitor(m_cond);
     if (!m_started)
     {
@@ -187,17 +197,12 @@ Prefetch::Close()
 
     if (m_output)
     {
-        if (Dbg) m_log.Emsg("Close", "Close m_output");
-        m_output->Close();
-        delete m_output;
-        m_output = NULL;
-
         // AMT create a file with cinfo extension, to mark file has completed
         //
         if (m_started && !m_stop)
         {
             std::stringstream ss;
-            if (Dbg) m_log.Emsg("Close create info file", ss.str().c_str());
+            aMsgIO(kInfo, &m_input, "Prefetch::Close() creating info file");
             ss << "touch " <<  m_temp_filename << ".cinfo";
             system(ss.str().c_str());
         }
@@ -217,6 +222,8 @@ Prefetch::Fail(bool cleanup)
     // Remove cached file.
 
     XrdSysCondVarHelper monitor(m_cond);
+    aMsgIO(kWarning, &m_input, "Prefetch::Fail() cleanup = %d, stated = %d, finalised = %d", cleanup, m_finalized, m_started);
+
     if (m_finalized)
         return false;
     if (!m_started)
@@ -224,7 +231,7 @@ Prefetch::Fail(bool cleanup)
 
     if (m_output)
     {
-        if (Dbg) m_log.Emsg("Fail", "Close m_output");
+        aMsgIO(kWarning, &m_input, "Prefetch::Fail() close output.");
         m_output->Close();
         delete m_output;
         m_output = NULL;
@@ -238,11 +245,6 @@ Prefetch::Fail(bool cleanup)
     return true;
 }
 
-Prefetch::~Prefetch()
-{
-    if (Dbg) m_log.Emsg("Destructor", "Destroying Prefetch Object");
-    Join();
-}
 
 ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
@@ -253,41 +255,23 @@ Prefetch::Read(char *buff, off_t offset, size_t size)
         errno = EBADF;
         return -errno;
     }
-    // TODO: if the file has been finalized, we could read it from its final location
-
-    std::stringstream ss;
-    ss << "offset = " << offset;
-
 
     off_t prefetch_offset = GetOffset();
-    ss << "prefetch_offset = " << prefetch_offset;
 
     if (prefetch_offset < offset)
     {
-        if (Dbg > 1) m_log.Emsg("Read", "Offset below requested offset. Nothing to read.", ss.str().c_str());
+        aMsgIO(kDebug, &m_input, "Prefetch::Read() Offset %lld below requested offset %lld.Nothing to read Nothing to read\n", prefetch_offset);
         return 0;
     }
     else if (prefetch_offset >= static_cast<off_t>(offset + size))
     {
-        ss << ", size  = " << size;
-        if (Dbg > 1) m_log.Emsg("Read", "read complete size", ss.str().c_str());
+        aMsgIO(kDebug, &m_input, "Prefetch::Read() read complete size ");
         return m_output->Read(buff, offset, size);
     }
     else
     {
         size_t to_read = offset + size - prefetch_offset;
-        ss << ", to_read  = " << to_read;
-
-        if (Dbg > 1) m_log.Emsg("Read", "read partial read ", ss.str().c_str());
+        aMsgIO(kDebug, &m_input, "Prefetch::Read() partial read first %lld bytes", to_read);
         return m_output->Read(buff, offset, to_read);
     }
 }
-
-
-/*
-   bool
-   Prefetch::hasCompletedSuccessfully() const
-   {
-   return m_finalized == true && m_stop == false;
-   }
- */

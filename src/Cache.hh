@@ -34,7 +34,7 @@ public:
 
 protected:
 
-    Cache(XrdOucCacheStats&, XrdSysError&);
+    Cache(XrdOucCacheStats&);
 
 private:
 
@@ -46,7 +46,6 @@ private:
     XrdSysMutex m_io_mutex;
     unsigned int m_attached;
 
-    XrdSysError & m_log;
     XrdOucCacheStats & m_stats;
 };
 

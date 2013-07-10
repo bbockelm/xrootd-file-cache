@@ -18,9 +18,8 @@ using namespace XrdFileCache;
 Cache *Cache::m_cache = NULL;
 XrdSysMutex Cache::m_cache_mutex;
 
-Cache::Cache(XrdOucCacheStats & stats, XrdSysError & log)
+Cache::Cache(XrdOucCacheStats & stats)
     : m_attached(0),
-      m_log(log),
       m_stats(stats)
 {}
 
@@ -30,15 +29,14 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached++;
 
-    m_log.Emsg("Attach", "Creating new IO object for file ", io->Path());
-    Rec << time(NULL)  << " Attach " << io->Path() << std::endl;
+    aMsgIO(kDebug, io, "Cache::Attache()");
     if (io)
     {
-        return new IO(*io, m_stats, *this, m_log);
+       return new IO(*io, m_stats, *this);
     }
     else
     {
-        m_log.Emsg("Attach", "No caching !!! ", io->Path());
+       aMsgIO(kDebug, io, "Cache::Attache(), XrdOucCacheIO == NULL");
     }
     
     m_attached--;
@@ -48,7 +46,6 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
 int
 Cache::isAttached()
 {
-    // AMT:: is this used anywere, can si it also in xrootd coide itself??
     XrdSysMutexHelper lock(&m_io_mutex);
     return m_attached;
 }
@@ -56,15 +53,11 @@ Cache::isAttached()
 void
 Cache::Detach(XrdOucCacheIO* io)
 {
-    Rec << time(NULL)  << " Detach " << io->Path() << std::endl;
-
-    // AMT:: don't know why ~IO should be called from this class
-    //        why not directly in IO::Detach() ???
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
 
-    std::stringstream ss; ss << m_attached << " " << io->Path();
-    if (Dbg) m_log.Emsg("Detach", "deleting io object ", ss.str().c_str() );
+    aMsgIO(kDebug, io, "Cache::Detach(), deleting IO object. Attach count = %d", m_attached);
+
 
     delete io;
 }

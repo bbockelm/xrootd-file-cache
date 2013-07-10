@@ -2,12 +2,11 @@
 #include "Cache.hh"
 #include "Prefetch.hh"
 #include "Context.hh"
-
 #include "Factory.hh"
 
-#include <sstream>
 #include <stdio.h>
 #include <fcntl.h>
+#include <utime.h>
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
@@ -16,8 +15,37 @@
 #include "XrdOss/XrdOss.hh"
 #include "XrdOuc/XrdOucEnv.hh"
 
+ 
 
 using namespace XrdFileCache;
+
+class XfcStats : public XrdOucCacheStats
+{
+public:
+   long long    BytesGetPrefetch;
+   long long    BytesGetDisk;
+   int          HitsPrefetch;
+   int          HitsDisk;
+
+   inline void AddStat(XfcStats &Src)
+   {
+      XrdOucCacheStats::Add(Src);
+
+      sMutex1.Lock();
+      BytesGetPrefetch += Src.BytesGetPrefetch;
+      BytesGetDisk     += Src.BytesGetDisk;
+
+      HitsPrefetch += Src.HitsPrefetch;
+      HitsDisk     += Src.HitsDisk;
+
+      sMutex1.UnLock();
+   }
+
+   XfcStats() : BytesGetPrefetch(0),BytesGetDisk(0),HitsPrefetch(0), HitsDisk(0){}
+private:
+   XrdSysMutex sMutex1;
+
+};
 
 void *
 PrefetchRunner(void * prefetch_void)
@@ -28,23 +56,24 @@ PrefetchRunner(void * prefetch_void)
     return NULL;
 }
 
-IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &log)
+IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
     : m_io(io),
-      m_stats(stats),
+      m_statsGlobal(stats),
+      m_stats(0),
       m_cache(cache),
-      m_diskDF(0),
-      m_log(log)
+      m_diskDF(0)
 {
+    m_stats = new XfcStats();
 
-    // check file is completed downloaing
+    // test is existance of *.cinfo file which assert the file has
+    // been completely downloaded
     XrdOucEnv myEnv;
     std::string fname;
     getFilePathFromURL(io.Path(), fname);
     fname = Factory::GetInstance().GetTempDirectory() + fname;
-    int test_open = -1;  
-    // test is existance of cinfo file
+    int test_open = -1;
+    std::string chkname = fname + ".cinfo";
     {
-        std::string chkname = fname + ".cinfo";
         XrdOucEnv myEnv;
         XrdOssDF* testFD  = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         test_open = testFD->Open(chkname.c_str(), O_RDONLY, 0600, myEnv);
@@ -52,34 +81,68 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache,  XrdSysError &
 
     if (test_open < 0 )
     {
-       m_prefetch =   Factory::GetInstance().GetPrefetch(io, fname);
+        m_prefetch =   Factory::GetInstance().GetPrefetch(io, fname);
         pthread_t tid;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
     }
     else {
-      m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
-      if ( m_diskDF && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
-	{
-	  if (Dbg) m_log.Emsg("Attach, ", "read from disk");
-	  Rec << time(NULL) << " disk " << fname << std::endl;
-	  m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
-	}
+        m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
+        if ( m_diskDF && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
+        {
+            aMsgIO(kInfo, &m_io, "IO::Attach(), read from disk.");
+            m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
+        }
     }
+
+
+    // update mtime on both files
+    utime(chkname.c_str(), NULL);
+    utime(fname.c_str(), NULL);
+}
+
+IO::~IO() 
+{
+   m_statsGlobal.Add(*m_stats);
+   delete m_stats;
 }
 
 XrdOucCacheIO *
 IO::Detach()
 {
-    if (Dbg > 1) m_log.Emsg("IO", "Detach ", m_io.Path());
-    fflush(stdout);
+    long long bytesWrite = m_prefetch.get() ? m_prefetch->GetOffset() : -1;
+    char Hbuf[512];
+    char Bbuf[512];
+    sprintf(Hbuf, "NumHits[%d] NumHitsPrefetch[%d] NumHitsDisk[%d] NumMissed[%d] ",
+            m_stats->Hits,
+            m_stats->HitsPrefetch,
+            m_stats->HitsDisk,
+            m_stats->Miss
+            );
+
+    sprintf(Bbuf, "bytes = BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld] BytesPass[%lld] BytesWrite[%lld]",
+            m_stats->BytesGet,
+            m_stats->BytesGetPrefetch,
+            m_stats->BytesGetDisk,
+            m_stats->BytesPass,
+            bytesWrite
+            );
+
+
+    aMsgIO(kInfo, &m_io, "IO::Detach() %s %s", &Hbuf[0], &Bbuf[0]);
     XrdOucCacheIO * io = &m_io;
     if (m_prefetch.get())
     {
-        // AMT maybe don't have to do this here but automatically in destructor
-        //  is valid io still needed for destruction? if not than nothing has to be done here
-        m_prefetch.reset();
+       // AMT maybe don't have to do this here but automatically in destructor
+       //  is valid io still needed for destruction? if not than nothing has to be done here
+       m_prefetch.reset();
     }
-    m_cache.Detach(this); // This will delete us!
+    else
+    {
+       m_diskDF->Close();
+    }
+
+    // This will delete us!
+    m_cache.Detach(this); 
     return io;
 }
 
@@ -89,25 +152,36 @@ IO::Detach()
 int
 IO::Read (char *buff, long long off, int size)
 {
-    std::stringstream ss; ss << "Read " << off << "@" << size;
-    if (Dbg) m_log.Emsg("IO", ss.str().c_str());
+    aMsgIO(kDebug, &m_io, "IO::Read() aMsgIO(kDebug, &m_io, %lld@%d", off, size);
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
-
+    XfcStats stat_tmp;
     if (m_prefetch)
     {
-        if (Dbg > 1) m_log.Emsg("IO, ", "Read from Prefetch.");
+        aMsgIO(kDebug, &m_io, "IO::Read() use Prefetch");
         retval = m_prefetch->Read(buff, off, size);
+        if (retval > 0) {
+            stat_tmp.HitsPrefetch = 1;
+            stat_tmp.BytesGetPrefetch = retval;
+        }
     }
     else
     {
-        if (Dbg > 1) m_log.Emsg("File, ", "Read from disk.");
+        aMsgIO(kDebug, &m_io, "IO::Read() use disk");
         retval = m_diskDF->Read(buff, off, size);
+        if (retval > 0) {
+            stat_tmp.HitsDisk = 1;
+            stat_tmp.BytesGetDisk = retval;
+        }
     }
 
 
     if (retval > 0)
-    {
+    { 
+        stat_tmp.BytesRead = retval;
+        stat_tmp.Hits = 1;
+        aMsgIO(kDebug, &m_io, "IO::Read() read hit %d", retval);
+
         bytes_read += retval;
         buff += retval;
         size -= retval;
@@ -116,19 +190,23 @@ IO::Read (char *buff, long long off, int size)
 
     if ((size > 0))
     {
-        retval = m_io.Read(buff, off, size);
-        // printf(" read ORIG return val [%d] ...... \n", retval);
+        aMsgIO(kDebug, &m_io, "IO::Read(). Trying to read %d from origin", size);
 
-        if (Dbg > 1) m_log.Emsg("IO", "Read from origin server.");
+        retval = m_io.Read(buff, off, size);
+
+        // statistic
+        stat_tmp.BytesPass = retval;
+        stat_tmp.Miss = 1;
+
         if (retval > 0) bytes_read += retval;
     }
     if (retval <= 0)
     {
-        ss.clear(); ss << "[" << retval << "]";
-        m_log.Emsg("IO", "Read error, bytes read ", ss.str().c_str());
+        aMsgIO(kError, &m_io, "IO::Read(), origin bytes read %d", retval);
     }
-    return (retval < 0) ? retval : bytes_read;
 
+    m_stats->AddStat(stat_tmp);
+    return (retval < 0) ? retval : bytes_read;
 }
 
 /*

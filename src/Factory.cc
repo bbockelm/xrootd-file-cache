@@ -18,7 +18,6 @@
 #include "Factory.hh"
 #include "Prefetch.hh"
 #include "Decision.hh"
-//#include "File.hh"
 #include "Context.hh"
 
 
@@ -61,7 +60,7 @@ XrdOssGetSS(XrdSysLogger *Logger, const char *config_fn,
 
 // Create a plugin object
 //
-                 OssEroute.logger(Logger);
+    OssEroute.logger(Logger);
     OssEroute.Emsg("XrdOssGetSS", "Initializing OSS lib from ", OssLib);
 #if defined(HAVE_VERSIONS)
     if (!(myLib = new XrdSysPlugin(&OssEroute, OssLib, "osslib",
@@ -99,7 +98,7 @@ Factory::Factory()
       m_username("nobody"),
       m_cache_expire(172800)
 {
-    Dbg = 1;
+    Dbg = kInfo;
 }
 
 extern "C"
@@ -109,7 +108,7 @@ XrdOucGetCache(XrdSysLogger *logger,
                const char   *config_filename,
                const char   *parameters)
 {
-    XrdSysError err(0, "XrdFileCache_");
+    XrdSysError err(0, "");
     err.logger(logger);
     err.Emsg("Retrieve", "Retrieving a caching proxy factory.");
     Factory &factory = Factory::GetInstance();
@@ -130,8 +129,6 @@ XrdOucGetCache(XrdSysLogger *logger,
 Factory &
 Factory::GetInstance()
 {
-    // XrdSysMutexHelper monitor(&m_factory_mutex);
-    //AMT !!!
     if (m_factory == NULL)
         m_factory = new Factory();
     return *m_factory;
@@ -141,16 +138,12 @@ XrdOucCache *
 Factory::Create(Parms & parms, XrdOucCacheIO::aprParms * prParms)
 {
     m_log.Emsg("Create", "Creating a new cache object.");
-    return new Cache(m_stats, m_log);
+    return new Cache(m_stats);
 }
 
 bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
-
-    // XrdPosixXrootd::setEnv("DataServerConn_ttl",  300);
-    // XrdPosixXrootd::setEnv("LBServerConn_ttl",    3600);
-
     m_log.logger(logger);
     m_log.Emsg("Config", "Configuring a file cache.");
 
@@ -357,15 +350,13 @@ Factory::ConfigParameters(const char * parameters)
         {
             getline(is, part, ' ');
             m_username = part.c_str();
-            //std::string msg = "Set user to " +  part;
-            // m_log.Emsg("Config",  msg.c_str());
+            aMsg(kInfo, "Factory::ConfigParameters() set user to %s", m_username.c_str());
         }
         else if  ( part == "-tmp" )
         {
             getline(is, part, ' ');
             m_temp_directory = part.c_str();
-            //std::string msg = "Set cache directory to " +  part;
-            // m_log.Emsg("Config",  msg.c_str());
+            aMsg(kInfo, "Factory::ConfigParameters() set temp. directory to %s", m_temp_directory.c_str());
         }
         else if  ( part == "-expire" )
         {
@@ -375,19 +366,19 @@ Factory::ConfigParameters(const char * parameters)
         else if  ( part == "-debug" )
         {
             getline(is, part, ' ');
-            Dbg = atoi(part.c_str());
+            Dbg = (LogLevel)atoi(part.c_str());
         }
         else if  ( part == "-log" )
         {
             getline(is, part, ' ');
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
-            if (Rec.is_open())
-                m_log.Emsg("Config", "Write record in file", part.c_str());           
+            if (Rec.is_open())    
+              aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
         }
         else if  ( part == "-exclude" )
         {
             getline(is, part, ' ');
-            m_log.Emsg("Config", "Excluded hosts ", part.c_str());
+            aMsg(kInfo, "Factory::ConfigParameters() Excluded hosts ", part.c_str());
             XrdClient::fDefaultExcludedHosts = part;
             part += ",";
         }
@@ -399,8 +390,7 @@ Factory::ConfigParameters(const char * parameters)
 PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
 {
-   //    std::string filename = io.Path();
-    if (Dbg) m_log.Emsg("GetXcfFile from global map", "XcfFile object requested for ", filename.c_str());
+    aMsg(kInfo, "Factory::GetPrefetch(), object requested for %s ", filename.c_str());
 
   
     XrdSysMutexHelper monitor(&m_factory_mutex);
@@ -408,14 +398,14 @@ Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
     if (it == m_file_map.end())
     {
         PrefetchPtr result;
-        result.reset(new Prefetch(m_log, *m_output_fs, io, filename));
+        result.reset(new Prefetch(*m_output_fs, io, filename));
         m_file_map[filename] = result;
         return result;
     }
     PrefetchPtr result = it->second.lock();
     if (!result)
     {
-       result.reset(new Prefetch(m_log, *m_output_fs, io, filename));
+       result.reset(new Prefetch(*m_output_fs, io, filename));
         m_file_map[filename] = result;
         return result;
     }
@@ -473,13 +463,13 @@ Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
                 fh->Fstat(&st);
                 if ( time(0) - st.st_mtime > m_cache_expire )
                 {
-                    m_log.Emsg("CheckDirStatRecurse", "removing file", &buff[0]);
+                    aMsg(kInfo, "Factory::CheckDirStatRecurse() removing file %s", &buff[0]);
                     m_output_fs->Unlink(np.c_str());
                 }
             }
             else
             {
-                m_log.Emsg("CheckDirStatRecurse", "can't access file ", np.c_str());
+               aMsg(kError, "Factory::CheckDirStatRecurse() can't access file %s", np.c_str());
             }
         }
     }
@@ -490,7 +480,8 @@ void
 Factory::TempDirCleanup()
 {
     XrdOucEnv env;
-    int interval = (m_cache_expire > 7200) ? 7200 : m_cache_expire;
+    static int mingap = 7200;
+    int interval = (m_cache_expire > mingap) ? mingap : m_cache_expire;
     while (1)
     {
         // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
@@ -499,7 +490,7 @@ Factory::TempDirCleanup()
         if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
             CheckDirStatRecurse(dh.get(), m_temp_directory);
         else
-            m_log.Emsg("TempDirCleanup", "can't open file cache directory ", m_temp_directory.c_str());
+           aMsg(kError, "Factory::CheckDirStatRecurse() can't open %s", m_temp_directory.c_str());
 
         dh->Close();
         sleep(interval);

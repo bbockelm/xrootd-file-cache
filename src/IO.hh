@@ -18,6 +18,7 @@
 
 class XrdSysError;
 class XrdOssDF;
+class XfcStats;
 
 namespace XrdFileCache
 {
@@ -57,18 +58,18 @@ public:
     Write(char *Buffer, long long Offset, int Length) { errno = ENOTSUP; return -1; }
 
 protected:
-    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache, XrdSysError &);
+    IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache &cache);
 
 private:
-    ~IO() {}
+   ~IO();
     bool getFilePathFromURL(const char* url, std::string& res);
 
     XrdOucCacheIO & m_io;
-    XrdOucCacheStats & m_stats;
+    XrdOucCacheStats & m_statsGlobal;
+    XfcStats* m_stats;
     Cache & m_cache;
     XrdOssDF* m_diskDF;
     PrefetchPtr m_prefetch;
-    XrdSysError m_log;
 };
 
 }

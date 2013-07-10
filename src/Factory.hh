@@ -12,11 +12,11 @@
 #include <vector>
 
 #include "XrdFileCacheFwd.hh"
-
 #include <XrdSys/XrdSysPthread.hh>
 #include <XrdOuc/XrdOucCache.hh>
 
 class XrdOucStream;
+class XrdSysError;
 
 namespace XrdFileCache
 {
@@ -25,11 +25,9 @@ class Cache;
 
 class Factory : public XrdOucCache
 {
-
     friend class IO;
 
 public:
-
     Factory();
 
     XrdOucCacheIO *
@@ -42,12 +40,10 @@ public:
 
     virtual XrdOucCache *Create(Parms &, XrdOucCacheIO::aprParms *aprP=0);
 
-    const std::string &
-    GetUsername() const {return m_username; }
-    const std::string
-    GetTempDirectory() const {return m_temp_directory; }
-    XrdOss*
-    GetOss() const {return m_output_fs; }
+    const std::string &GetUsername() const {return m_username; }
+    const std::string GetTempDirectory() const {return m_temp_directory; }
+    XrdOss*GetOss() const {return m_output_fs; }
+    XrdSysError& GetSysError() {return m_log;}
 
     bool Decide(std::string &);
 
@@ -55,20 +51,14 @@ public:
     static Factory &GetInstance();
 
 protected:
-
    PrefetchPtr GetPrefetch(XrdOucCacheIO &, std::string& filePath);
-    // void Detach(FilePtr);
 
 private:
-
-    // void Detach(XrdOucCacheIO *);
-
     bool ConfigParameters(const char *);
     bool ConfigXeq(char *, XrdOucStream &);
     bool xolib(XrdOucStream &);
     bool xdlib(XrdOucStream &);
     bool xexpire(XrdOucStream &);
-
 
     void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
 
@@ -77,14 +67,16 @@ private:
 
     XrdSysError m_log;
     XrdOucCacheStats m_stats;
+    PrefetchWeakPtrMap m_file_map;
+    XrdOss *m_output_fs;
+    std::vector<Decision*> m_decisionpoints;
+
+    // configuration
     std::string m_osslib_name;
     std::string m_config_filename;
     std::string m_temp_directory;
     std::string m_username;
-    PrefetchWeakPtrMap m_file_map;
-    XrdOss *m_output_fs;
     int m_cache_expire;
-    std::vector<Decision*> m_decisionpoints;
 };
 
 }
