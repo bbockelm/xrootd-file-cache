@@ -14,8 +14,8 @@
 #include "XrdSys/XrdSysPthread.hh"
 #include "XrdOss/XrdOss.hh"
 #include "XrdOuc/XrdOucEnv.hh"
-
  
+#include <XrdSys/XrdSysPthread.hh>
 
 using namespace XrdFileCache;
 
@@ -109,31 +109,13 @@ IO::~IO()
 XrdOucCacheIO *
 IO::Detach()
 {
-    long long bytesWrite = m_prefetch.get() ? m_prefetch->GetOffset() : -1;
-    char Hbuf[512];
-    char Bbuf[512];
-    sprintf(Hbuf, "NumHits[%d] NumHitsPrefetch[%d] NumHitsDisk[%d] NumMissed[%d] ",
-            m_stats->Hits,
-            m_stats->HitsPrefetch,
-            m_stats->HitsDisk,
-            m_stats->Miss
-            );
-
-    sprintf(Bbuf, "BytesGet[%lld] BytesGetPrefetch[%lld] BytesGetDisk[%lld] BytesPass[%lld] BytesWrite[%lld]",
-            m_stats->BytesGet,
-            m_stats->BytesGetPrefetch,
-            m_stats->BytesGetDisk,
-            m_stats->BytesPass,
-            bytesWrite
-            );
-
-
-    aMsgIO(kInfo, &m_io, "IO::Detach() %s %s", &Hbuf[0], &Bbuf[0]);
+    aMsgIO(kDebug, &m_io, "IO::Detach()");
     XrdOucCacheIO * io = &m_io;
     if (m_prefetch.get())
     {
        // AMT maybe don't have to do this here but automatically in destructor
        //  is valid io still needed for destruction? if not than nothing has to be done here
+        m_prefetch->CloseCleanly();
        m_prefetch.reset();
     }
     else
@@ -158,8 +140,22 @@ IO::Read (char *buff, long long off, int size)
     XfcStats stat_tmp;
     if (m_prefetch)
     {
-        aMsgIO(kDebug, &m_io, "IO::Read() use Prefetch");
+        if (m_prefetch->HasDownloaded(off, size) == false)
+        {
+            XrdSysCondVar cond(0);
+           m_prefetch->AddTask(off, size, &cond);
+           {
+              XrdSysCondVarHelper xx(cond);
+              cond.Wait();
+              aMsgIO(kDebug, &m_io, "IO::Read() use prefetch, cond.Wait() finsihed.");
+           }
+        }
+        else
+        {
+            aMsgIO(kDebug, &m_io, "IO::Read() use Prefetch -- blocks already downlaoded.");
+        }
         retval = m_prefetch->Read(buff, off, size);
+
         if (retval > 0) {
             stat_tmp.HitsPrefetch = 1;
             stat_tmp.BytesGetPrefetch = retval;
@@ -176,6 +172,8 @@ IO::Read (char *buff, long long off, int size)
     }
 
 
+    // now handle statistics and return value
+
     if (retval > 0)
     { 
         stat_tmp.BytesRead = retval;
@@ -190,16 +188,12 @@ IO::Read (char *buff, long long off, int size)
 
     if ((size > 0))
     {
-        aMsgIO(kDebug, &m_io, "IO::Read(). Trying to read %d from origin", size);
-
-        retval = m_io.Read(buff, off, size);
-
-        // statistic
-        stat_tmp.BytesPass = retval;
+        aMsgIO(kDebug, &m_io, "IO::Read() missed %d bytes", size);
+        stat_tmp.BytesPass = size;
         stat_tmp.Miss = 1;
-
         if (retval > 0) bytes_read += retval;
     }
+
     if (retval <= 0)
     {
         aMsgIO(kError, &m_io, "IO::Read(), origin bytes read %d", retval);
