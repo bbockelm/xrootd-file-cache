@@ -73,13 +73,7 @@ int main(int argc, char *argv[])
   for (int i = 0 ; i < numCopies; ++i)
      c->Read(&buf[0], offset + size*i, size);
 
-  // printf("write buff \n");
-  // write(1, &buf[0], size);
-
-  while(1)
-  {
-     sleep(1);
-  }
+  
 
   return 0;
 }
