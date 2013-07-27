@@ -11,8 +11,7 @@ class XrdOucCacheIO;
    if (Dbg > level) XrdFileCache::strprintf(level, format, ##__VA_ARGS__)
 
 #define aMsgIO(level, io, format, ...) \
-   if (Dbg > level) XrdFileCache::strprintf(level, format, ##__VA_ARGS__)
-//  if (Dbg > level) XrdFileCache::strprintfIO(level, io, format, ##__VA_ARGS__)
+  if (Dbg > level) XrdFileCache::strprintfIO(level, io, format, ##__VA_ARGS__)
 
 
 namespace  XrdFileCache

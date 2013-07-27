@@ -79,9 +79,9 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
         test_open = testFD->Open(chkname.c_str(), O_RDONLY, 0600, myEnv);
     }
 
-    if (test_open < 0 )
+    if ( test_open < 0 )
     {
-        m_prefetch =   Factory::GetInstance().GetPrefetch(io, fname);
+        m_prefetch = Factory::GetInstance().GetPrefetch(io, fname);
         pthread_t tid;
         XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
     }
@@ -154,6 +154,7 @@ IO::Read (char *buff, long long off, int size)
         {
             aMsgIO(kDebug, &m_io, "IO::Read() use Prefetch -- blocks already downlaoded.");
         }
+
         retval = m_prefetch->Read(buff, off, size);
 
         if (retval > 0) {

@@ -14,7 +14,7 @@
 #include "XrdOuc/XrdOucEnv.hh"
 using namespace XrdFileCache;
 
-const size_t Prefetch::s_buffer_size = 64*1024;
+const size_t Prefetch::s_buffer_size = 256*1024;
 
 Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
@@ -29,7 +29,7 @@ Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_f
       m_stateCond(0) // We will explicitly lock the condition before use.
 {
     if (m_input.FSize() > 0 ) {
-        int ss = (m_input.FSize() -1)/s_buffer_size;
+        int ss = (m_input.FSize() -1)/s_buffer_size + 1;
         m_download_status.insert(m_download_status.begin(), ss, false);
         aMsgIO(kDebug, &m_input, "Prefetch::Prefetch()  file has %d blocks", ss);
     }
@@ -80,6 +80,7 @@ Prefetch::Run()
             already = m_download_status[block];
             m_downloadStatusMutex.UnLock();
             if (already) {
+                // this happens in the case of queue
                 aMsgIO(kDebug, &m_input, "Prefetch::Run() already done, continue ...");
                 continue;
             } else {
@@ -88,7 +89,7 @@ Prefetch::Run()
  
             long long offset = block * s_buffer_size;
             retval = m_input.Read(&buff[0], offset, s_buffer_size);
-
+            aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", block, retval);
              // write in disk file
             int buffer_remaining = retval;
             int buffer_offset = 0;
@@ -274,9 +275,10 @@ Prefetch::HasDownloaded(long long offset, int size)
     int first_block = offset / s_buffer_size;
     int last_block =  (offset + size -1)/ s_buffer_size;
     m_downloadStatusMutex.Lock();
-    for (int i = first_block; i != last_block; ++i)
+    for (int i = first_block; i <= last_block; ++i)
     {
-        if (m_download_status[i] == false) {
+        bool x = m_download_status[i];
+        if (x == false) {
             res = false;
             break;
         }
@@ -342,13 +344,13 @@ Prefetch::GetNextTask(Task& t )
 ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
 {
-    XrdSysCondVarHelper monitor(m_stateCond);
-    if (!m_started || m_finalized)
-    {
-        errno = EBADF;
-        return -errno;
+    aMsgIO(kDebug, &m_input, "Prefetch::Read()  started (1)!!!");
+    m_downloadStatusMutex.Lock();
+    for (int i = 0 ; i < m_download_status.size(); ++i) {
+    int x =  m_download_status[i];
+        printf("status[ %d] = %d \n", i,  x);
     }
-
+    m_downloadStatusMutex.UnLock();
 
     ssize_t res =  m_output->Read(buff, offset, size);    
     aMsgIO(kDebug, &m_input, "Prefetch::Read() read complete size = %d ", (int)res);
