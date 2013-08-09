@@ -27,6 +27,7 @@ const char* levelName(LogLevel iLevel) {
 
 void strprintf(LogLevel level, const char* fmt, ...)
 {
+   // printf("level %d limit Dbg = %d \n", level, Dbg);
    int size = 512;
 
    std::string str;
