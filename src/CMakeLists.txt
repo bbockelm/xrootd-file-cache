@@ -4,7 +4,7 @@ add_library (XrdFileCache MODULE IO.cc Factory.cc Cache.cc Prefetch.cc Context.c
 add_library (XrdFileCacheAllowAlways MODULE AllowDecision.cc)
 add_library (XrdFileCacheExcludePaths MODULE PathsDecision.cc)
 
-target_link_libraries(XrdFileCache ${XROOTD_UTILS} ${XROOTD_SERVER} ${XROOTD_CLIENT} ${XROOTD_POSIX})
+target_link_libraries(XrdFileCache ${XROOTD_UTILS} ${XROOTD_SERVER} ${XROOTD_CLIENT} ${XROOTD_CL} ${XROOTD_POSIX})
 
 install(
   TARGETS XrdFileCache
