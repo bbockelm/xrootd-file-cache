@@ -9,12 +9,14 @@
 #include "Cache.hh"
 #include "Context.hh"
 
-#include <XrdClient/XrdClient.hh>
-#include "XrdSfs/XrdSfsInterface.hh"
+#include <XrdCl/XrdClFile.hh>
+#include <XrdCl/XrdClXRootDResponses.hh>
+//#include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdOuc/XrdOucEnv.hh"
+#include "XrdPosix/XrdPosixFile.hh"
 using namespace XrdFileCache;
 
-const size_t Prefetch::s_buffer_size = 256*1024;
+const size_t Prefetch::s_buffer_size = 128*1024;
 
 Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
@@ -28,16 +30,25 @@ Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_f
       m_numHitBlock(0),
       m_stateCond(0) // We will explicitly lock the condition before use.
 {
+   XrdCl::XRootDStatus stat;
+   //  ((XrdPosixFile&)m_input).Stat(stat);
+   XrdPosixFile* ps = (XrdPosixFile*)&m_input;
+   ps->Stat(stat, false);
     if (m_input.FSize() > 0 ) {
         int ss = (m_input.FSize() -1)/s_buffer_size + 1;
         m_download_status.insert(m_download_status.begin(), ss, false);
         aMsgIO(kDebug, &m_input, "Prefetch::Prefetch()  file has %d blocks", ss);
+    }
+    else {
+        aMsgIO(kError, &m_input, "Prefetch::Prefetch()  can't get FILE size ");
     }
 }
 
 Prefetch::~Prefetch()
 { 
     aMsgIO(kDebug, &m_input, "Prefetch::~Prefetch() destroying Prefetch Object");
+    aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch() hit[%d] miss[%d]",  m_numHitBlock, m_numMissBlock);
+
     Join();
 
     aMsgIO(kWarning, &m_input, "Prefetch::~Prefetch close disk file");
@@ -269,24 +280,22 @@ Prefetch::Task::Dump()
 }
 
 bool
-Prefetch::HasDownloaded(long long offset, int size)
-{ 
-    bool res = true;
+Prefetch::GetStatForRng(long long offset, int size, int& pulled)
+{
     int first_block = offset / s_buffer_size;
     int last_block =  (offset + size -1)/ s_buffer_size;
+
+    pulled = 0;
     m_downloadStatusMutex.Lock();
     for (int i = first_block; i <= last_block; ++i)
     {
-        bool x = m_download_status[i];
-        if (x == false) {
-            res = false;
-            break;
-        }
+        pulled += m_download_status[i];        
     }
     m_downloadStatusMutex.UnLock();
 
-    aMsgIO(kDebug, &m_input, "Prefetch::HasDownloaded() %lld %d ... %d", offset, size, res);
-    return res;
+    int nblocks = last_block - first_block + 1;
+    aMsgIO(kInfo, &m_input, "Prefetch::GetStatForRng() bolcksPulled[%d] needed[%d]", pulled, nblocks);
+    return pulled < nblocks;
 }
 
 void
@@ -341,15 +350,17 @@ Prefetch::GetNextTask(Task& t )
 //______________________________________________________________________________
 
 
+
 ssize_t
 Prefetch::Read(char *buff, off_t offset, size_t size)
 {
     aMsgIO(kDebug, &m_input, "Prefetch::Read()  started (1)!!!");
     m_downloadStatusMutex.Lock();
+    /*
     for (int i = 0 ; i < m_download_status.size(); ++i) {
     int x =  m_download_status[i];
-        printf("status[ %d] = %d \n", i,  x);
-    }
+       printf("status[ %d] = %d \n", i,  x);
+       }*/
     m_downloadStatusMutex.UnLock();
 
     ssize_t res =  m_output->Read(buff, offset, size);    

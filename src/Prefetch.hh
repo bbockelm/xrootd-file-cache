@@ -40,8 +40,10 @@ public:
     void Join();
 
     void AddTask(long long offset, int size, XrdSysCondVar* cond);
-    bool HasDownloaded(long long offset, int size);
 
+    bool GetStatForRng(long long offset, int size, int& pulled);
+
+    static const size_t s_buffer_size;
 protected:
 
     ssize_t Read(char * buff, off_t offset, size_t size);
@@ -57,7 +59,6 @@ private:
     bool Close();
     bool Fail(bool cleanup);
 
-    static const size_t s_buffer_size;
 
     // file
     XrdOss  &m_output_fs;

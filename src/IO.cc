@@ -10,7 +10,7 @@
 
 #include "XrdClient/XrdClientConst.hh"
 #include "XrdSys/XrdSysError.hh"
-#include "XrdSfs/XrdSfsInterface.hh"
+//#include "XrdSfs/XrdSfsInterface.hh"
 #include "XrdSys/XrdSysPthread.hh"
 #include "XrdOss/XrdOss.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -22,28 +22,42 @@ using namespace XrdFileCache;
 class XfcStats : public XrdOucCacheStats
 {
 public:
-   long long    BytesGetPrefetch;
-   long long    BytesGetDisk;
-   int          HitsPrefetch;
-   int          HitsDisk;
+    long long    BytesCachedPrefetch;
+    long long    BytesPrefetch;
+    long long    BytesDisk;
+    int          HitsPrefetch;
+    int          HitsDisk;
 
-   inline void AddStat(XfcStats &Src)
-   {
-      XrdOucCacheStats::Add(Src);
+    inline void AddStat(XfcStats &Src)
+    {
+        XrdOucCacheStats::Add(Src);
 
-      sMutex1.Lock();
-      BytesGetPrefetch += Src.BytesGetPrefetch;
-      BytesGetDisk     += Src.BytesGetDisk;
+        sMutex1.Lock();
+        BytesCachedPrefetch += Src.BytesCachedPrefetch;
+        BytesPrefetch       += Src.BytesPrefetch;
+        BytesDisk           += Src.BytesDisk;
 
-      HitsPrefetch += Src.HitsPrefetch;
-      HitsDisk     += Src.HitsDisk;
+        HitsPrefetch += Src.HitsPrefetch;
+        HitsDisk     += Src.HitsDisk;
 
-      sMutex1.UnLock();
-   }
+        sMutex1.UnLock();
+    }
 
-   XfcStats() : BytesGetPrefetch(0),BytesGetDisk(0),HitsPrefetch(0), HitsDisk(0){}
+    XfcStats() :
+        BytesCachedPrefetch(0), 
+        BytesPrefetch(0),
+        BytesDisk(0),
+        HitsPrefetch(0), 
+        HitsDisk(0){}
+
+
+    void Dump()
+    {
+        aMsg(kError, "StatDump bCP = %lld, bP = %lld, bD =  %lld\n", BytesCachedPrefetch, BytesPrefetch, BytesDisk);
+    }
+
 private:
-   XrdSysMutex sMutex1;
+    XrdSysMutex sMutex1;
 
 };
 
@@ -55,6 +69,8 @@ PrefetchRunner(void * prefetch_void)
         prefetch->Run();
     return NULL;
 }
+//______________________________________________________________________________
+
 
 IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
     : m_io(io),
@@ -102,25 +118,34 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
 
 IO::~IO() 
 {
-   m_statsGlobal.Add(*m_stats);
+  
    delete m_stats;
 }
 
 XrdOucCacheIO *
 IO::Detach()
 {
-    aMsgIO(kDebug, &m_io, "IO::Detach()");
+    m_statsGlobal.Add(*m_stats);
+    // m_stats->Dump();
+    aMsgIO(kInfo, &m_io, "IO::Detach() bPrefCh[%lld] bPref[%lld] bDisk[%lld] bError[%lld]", 
+           m_stats->BytesCachedPrefetch,  m_stats->BytesPrefetch,m_stats->BytesDisk, m_stats->BytesPass);
+
+    aMsgIO(kInfo, &m_io, "IO::Detach() hitPref[%d] hitDisk[%d] hitError[%d]",
+           m_stats->HitsPrefetch,  m_stats->HitsDisk, m_stats->Miss);
+
+
+
     XrdOucCacheIO * io = &m_io;
     if (m_prefetch.get())
     {
-       // AMT maybe don't have to do this here but automatically in destructor
-       //  is valid io still needed for destruction? if not than nothing has to be done here
+        // AMT maybe don't have to do this here but automatically in destructor
+        //  is valid io still needed for destruction? if not than nothing has to be done here
         m_prefetch->CloseCleanly();
-       m_prefetch.reset();
+        m_prefetch.reset();
     }
     else
     {
-       m_diskDF->Close();
+        m_diskDF->Close();
     }
 
     // This will delete us!
@@ -135,14 +160,18 @@ int
 IO::Read (char *buff, long long off, int size)
 {
     aMsgIO(kDebug, &m_io, "IO::Read() %lld@%d", off, size);
+    // return m_io.Read(buff, off, size);
+
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
     XfcStats stat_tmp;
     if (m_prefetch)
     {
-        if (m_prefetch->HasDownloaded(off, size) == false)
+       int nbp;
+
+      if ( m_prefetch->GetStatForRng(off, size, nbp))
         {
-            XrdSysCondVar cond(0);
+           XrdSysCondVar cond(0);
            m_prefetch->AddTask(off, size, &cond);
            {
               XrdSysCondVarHelper xx(cond);
@@ -159,16 +188,19 @@ IO::Read (char *buff, long long off, int size)
 
         if (retval > 0) {
             stat_tmp.HitsPrefetch = 1;
-            stat_tmp.BytesGetPrefetch = retval;
+            stat_tmp.BytesCachedPrefetch = nbp * Prefetch::s_buffer_size;
+            if (stat_tmp.BytesCachedPrefetch > size) 
+                stat_tmp.BytesCachedPrefetch = size;
+            stat_tmp.BytesPrefetch = retval;
         }
     }
     else
     {
-        aMsgIO(kDebug, &m_io, "IO::Read() use disk");
         retval = m_diskDF->Read(buff, off, size);
+        aMsgIO(kDebug, &m_io, "IO::Read() use disk reval = %d\n", retval);
         if (retval > 0) {
             stat_tmp.HitsDisk = 1;
-            stat_tmp.BytesGetDisk = retval;
+            stat_tmp.BytesDisk = retval;
         }
     }
 
@@ -208,10 +240,10 @@ IO::Read (char *buff, long long off, int size)
  * Perform a readv from the cache
  */
 #if defined(HAVE_READV)
-
 int
 IO::ReadV (const XrdOucIOVec *readV, int n)
 {
+/*
     ssize_t bytes_read = 0;
     size_t missing = 0;
     XrdOucIOVec missingReadV[READV_MAXCHUNKS];
@@ -252,8 +284,9 @@ IO::ReadV (const XrdOucIOVec *readV, int n)
             return retval;
         }
     }
-    return bytes_read;
-}
+    return bytes_read;*/
+   return 0;
+    }
 #endif
 
 
