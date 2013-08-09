@@ -21,9 +21,12 @@
 #include "Context.hh"
 
 
+
 using namespace XrdFileCache;
 
 #define TS_Xeq(x,m)    if (!strcmp(x,var)) return m(Config);
+
+XrdVERSIONINFO(XrdOucGetCache, xxx);
 
 // Copy/paste from XrdOss/XrdOssApi.cc.  Unfortunately, this function
 // is not part of the stable API for extension writers, necessitating
@@ -145,7 +148,6 @@ bool
 Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *parameters)
 {
     m_log.logger(logger);
-
 
     const char * cache_env;
     if (!(cache_env = getenv("XRDPOSIX_CACHE")) || !*cache_env)
@@ -363,14 +365,14 @@ Factory::ConfigParameters(const char * parameters)
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
             if (Rec.is_open())    
               aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
-        }
+        }/*
         else if  ( part == "-exclude" )
         {
             getline(is, part, ' ');
             aMsg(kInfo, "Factory::ConfigParameters() Excluded hosts ", part.c_str());
             XrdClient::fDefaultExcludedHosts = part;
             part += ",";
-        }
+            }*/
     }
 
     return true;

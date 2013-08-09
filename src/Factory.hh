@@ -14,7 +14,7 @@
 #include "XrdFileCacheFwd.hh"
 #include <XrdSys/XrdSysPthread.hh>
 #include <XrdOuc/XrdOucCache.hh>
-
+#include "XrdVersion.hh" 
 class XrdOucStream;
 class XrdSysError;
 
@@ -50,6 +50,7 @@ public:
     void TempDirCleanup();
     static Factory &GetInstance();
 
+    static  bool   VCheck(XrdVersionInfo &urVersion) {return true;}
 protected:
    PrefetchPtr GetPrefetch(XrdOucCacheIO &, std::string& filePath);
 
