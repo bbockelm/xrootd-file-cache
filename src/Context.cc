@@ -27,7 +27,8 @@ const char* levelName(LogLevel iLevel) {
 
 void strprintf(LogLevel level, const char* fmt, ...)
 {
-   // printf("level %d limit Dbg = %d \n", level, Dbg);
+   //   printf("!!!! level %d limit Dbg = %d \n", level, Dbg);
+
    int size = 512;
 
    std::string str;
@@ -42,6 +43,7 @@ void strprintf(LogLevel level, const char* fmt, ...)
       if (n > -1 && n < size)
       {
          Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str());
+         Factory::GetInstance().GetSysError().Emsg("Context can't print message", "IO");
          return;
       }
 
@@ -55,6 +57,7 @@ void strprintf(LogLevel level, const char* fmt, ...)
 
 void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
 {
+   //  printf("!!!! level %d limit Dbg = %d \n", level, Dbg);
    int size = 512;
 
    std::string str;

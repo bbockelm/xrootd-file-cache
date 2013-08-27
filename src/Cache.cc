@@ -29,7 +29,7 @@ Cache::Attach(XrdOucCacheIO *io, int Options)
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached++;
 
-    aMsgIO(kDebug, io, "Cache::Attache()");
+    aMsgIO(kInfo, io, "Cache::Attach()");
     if (io)
     {
        return new IO(*io, m_stats, *this);
@@ -53,6 +53,7 @@ Cache::isAttached()
 void
 Cache::Detach(XrdOucCacheIO* io)
 {
+    aMsgIO(kInfo, io, "Cache::Detach()");
     XrdSysMutexHelper lock(&m_io_mutex);
     m_attached--;
 

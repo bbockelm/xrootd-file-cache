@@ -105,7 +105,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
         m_diskDF = Factory::GetInstance().GetOss()->newFile(Factory::GetInstance().GetUsername().c_str());
         if ( m_diskDF && m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv))
         {
-            aMsgIO(kInfo, &m_io, "IO::Attach(), read from disk.");
+            aMsgIO(kInfo, &m_io, "IO::IO(), read from disk.");
             m_diskDF->Open(fname.c_str(), O_RDONLY, 0600, myEnv);
         }
     }
