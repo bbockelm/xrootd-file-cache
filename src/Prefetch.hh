@@ -13,6 +13,8 @@
 #include <XrdOuc/XrdOucCache.hh>
 
 #include "XrdFileCacheFwd.hh"
+#include "CacheFileInfo.hh"
+
 class XrdClient;
 namespace XrdFileCache
 {
@@ -22,11 +24,11 @@ class Prefetch {
     friend class IO;
 
     struct Task {
-        long long m_offset;
-        int m_size;
-        XrdSysCondVar* m_condVar;
+       int firstBlock;
+       int lastBlock;
+       XrdSysCondVar* condVar;
 
-Task(long long iOff = 0, int iSize = s_buffer_size, XrdSysCondVar* iCondVar = 0):m_offset(iOff), m_size(iSize), m_condVar(iCondVar) {}
+       Task(int fb = 0, int lb = 0, XrdSysCondVar* iCondVar = 0):firstBlock(fb), lastBlock(lb), condVar(iCondVar) {}
         ~Task() {}
         void Dump();
     };
@@ -39,11 +41,12 @@ public:
     void Run();
     void Join();
 
-    void AddTask(long long offset, int size, XrdSysCondVar* cond);
+    void AddTaskForRng(long long offset, int size, XrdSysCondVar* cond);
 
     bool GetStatForRng(long long offset, int size, int& pulled);
 
     static const size_t s_buffer_size;
+
 protected:
 
     ssize_t Read(char * buff, off_t offset, size_t size);
@@ -63,9 +66,10 @@ private:
     // file
     XrdOss  &m_output_fs;
     XrdOssDF *m_output;
+    XrdOssDF *m_infoFile;
+    CacheFileInfo m_cfi;
     XrdOucCacheIO & m_input;
     std::string     m_temp_filename;
-    std::vector<bool> m_download_status;
     std::queue<Task> m_tasks_queue;
 
     bool m_started;

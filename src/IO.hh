@@ -68,7 +68,6 @@ private:
     XrdOucCacheStats & m_statsGlobal;
     XfcStats* m_stats;
     Cache & m_cache;
-    XrdOssDF* m_diskDF;
     PrefetchPtr m_prefetch;
 };
 
