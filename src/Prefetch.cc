@@ -203,7 +203,7 @@ Prefetch::Open()
     }
 
     // Create the info file
-    std::string ifn = m_temp_filename + ".cinfo";
+    std::string ifn = m_temp_filename + InfoExt;
     m_output_fs.Create(Factory::GetInstance().GetUsername().c_str(), ifn.c_str(), 0600, myEnv, XRDOSS_mkpath);
     m_infoFile = m_output_fs.newFile(Factory::GetInstance().GetUsername().c_str());
     if (!m_infoFile || m_infoFile->Open(ifn.c_str(), O_RDWR, 0600, myEnv) < 0) 
@@ -237,19 +237,6 @@ Prefetch::Close()
         return false;
     }
 
-    if (m_output)
-    {
-        // AMT create a file with cinfo extension, to mark file has completed
-        //
-        if (m_started && !m_stop)
-        {
-            std::stringstream ss;
-            aMsgIO(kInfo, &m_input, "Prefetch::Close() creating info file");
-            ss << "touch " <<  m_temp_filename << ".cinfo";
-            system(ss.str().c_str());
-        }
-
-    }
 
     m_stateCond.Broadcast();
     m_finalized = true;
