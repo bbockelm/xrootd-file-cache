@@ -47,6 +47,7 @@ Prefetch::~Prefetch()
 
 
     aMsgIO(kDebug, &m_input, "Prefetch::~Prefetch close Info file");
+    m_cfi.touch();
     m_cfi.write(m_infoFile);
     if (Dbg <= kDump)  m_cfi.print();
     m_infoFile->Close();
