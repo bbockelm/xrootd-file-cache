@@ -62,6 +62,13 @@ void  CacheFileInfo::resizeBits(int s)
    m_buff = (char*)malloc(getSizeInBytes());
    memset(m_buff, 0, getSizeInBytes());
 }
+
+void CacheFileInfo::touch()
+{
+   m_accessTime = time(NULL);
+   m_accessCnt += 1;
+}
+
 //______________________________________________________________________________
 
 
@@ -94,6 +101,7 @@ int  CacheFileInfo::write(XrdOssDF* fp) const
 
    return off;
 }
+
 //______________________________________________________________________________
 
 bool CacheFileInfo::isAnythingEmptyInRng(int firstIdx, int lastIdx) const
