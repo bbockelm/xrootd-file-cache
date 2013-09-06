@@ -27,6 +27,8 @@ enum LogLevel {
 
 extern LogLevel Dbg;
 extern std::fstream Rec;
+extern const char* InfoExt;
+extern int InfoExtLen;
 
 const char* levelName(LogLevel);
 void strprintf(LogLevel level, const char* fmt, ...);

@@ -17,6 +17,8 @@ namespace XrdFileCache
 {
 LogLevel Dbg;
 std::fstream Rec;
+const char* InfoExt = ".cinfo";
+int InfoExtLen = int(strlen(InfoExt));
 
 const char* const s_levelNames[] = { "Dump ", "Debug","Info ", "Warn ", "Err  " };
 
@@ -43,7 +45,6 @@ void strprintf(LogLevel level, const char* fmt, ...)
       if (n > -1 && n < size)
       {
          Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str());
-         Factory::GetInstance().GetSysError().Emsg("Context can't print message", "IO");
          return;
       }
 
