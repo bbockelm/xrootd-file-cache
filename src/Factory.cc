@@ -1,6 +1,7 @@
 #include <sstream>
 #include <fcntl.h>
 #include <stdio.h>
+#include <map>
 
 #include "XrdSys/XrdSysPthread.hh"
 #include "XrdOuc/XrdOucEnv.hh"
@@ -98,8 +99,7 @@ TempDirCleanupThread(void*)
 Factory::Factory()
     : m_log(0, "XFC_"),
       m_temp_directory("/var/tmp/xrootd-file-cache"),
-      m_username("nobody"),
-      m_cache_expire(172800)
+      m_username("nobody")
 {
     Dbg = kInfo;
 }
@@ -214,7 +214,6 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     aMsg(kInfo,"Factory::Config() Cache user name %s", m_username.c_str());
     aMsg(kInfo,"Factory::Config() Cache temporary directory %s", m_temp_directory.c_str());
     aMsg(kInfo,"Factory::Config() Cache debug level %d", Dbg);
-    aMsg(kInfo,"Factory::Config() Cache expire in %d [s]",m_cache_expire );
            
     if (retval)
     {
@@ -227,6 +226,7 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     }
 
     aMsg(kInfo, "Factory::Config() Configuration = %s ", retval ? "Success" : "Fail");
+
     return retval;
 }
 
@@ -349,11 +349,6 @@ Factory::ConfigParameters(const char * parameters)
             m_temp_directory = part.c_str();
             aMsg(kInfo, "Factory::ConfigParameters() set temp. directory to %s", m_temp_directory.c_str());
         }
-        else if  ( part == "-expire" )
-        {
-            getline(is, part, ' ');
-            m_cache_expire = atoi(part.c_str());
-        }
         else if  ( part == "-debug" )
         {
             getline(is, part, ' ');
@@ -365,14 +360,7 @@ Factory::ConfigParameters(const char * parameters)
             Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
             if (Rec.is_open())    
               aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
-        }/*
-        else if  ( part == "-exclude" )
-        {
-            getline(is, part, ' ');
-            aMsg(kInfo, "Factory::ConfigParameters() Excluded hosts ", part.c_str());
-            XrdClient::fDefaultExcludedHosts = part;
-            part += ",";
-            }*/
+        }
     }
 
     return true;
@@ -420,47 +408,45 @@ Factory::Decide(std::string &filename)
     return true;
 }
 
+//______________________________________________________________________________
 
 
 void
-Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
+FillFileMapRecurse( XrdOssDF* df, std::string& path, std::map<std::string, time_t>& fcmap)
 {
     char buff[256];
     XrdOucEnv env;
-    struct stat st;
     int rdr;
-    //  std::cerr << "CheckDirStatRecurse " << path << std::endl;
+
+    Factory& factory = Factory::GetInstance();
     while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
     {
+        // printf("readdir [%s]\n", buff);
         std::string np = path + "/" + std::string(buff);
-        if ( strlen(&buff[0]) == 0  )
+        int fname_len = strlen(&buff[0]);
+        if (fname_len == 0  )
         {
-            // std::cout << "Finish read dir. Break loop \n";
+            // std::cout << "Finish read dir.[" << np <<"] Break loop \n";
             break;
         }
 
-
         if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
         {
-            std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-            std::auto_ptr<XrdOssDF> fh(m_output_fs->newFile(m_username.c_str()));
-            // std::cerr << "check " << np << std::endl;
-            if ( dh->Opendir(np.c_str(), env)  >= 0 )
+            std::auto_ptr<XrdOssDF> dh(factory.GetOss()->newDir(factory.GetUsername().c_str()));   
+            std::auto_ptr<XrdOssDF> fh(factory.GetOss()->newFile(factory.GetUsername().c_str()));   
+
+            if (fname_len > InfoExtLen && strncmp(&buff[fname_len - InfoExtLen ], InfoExt , InfoExtLen) == 0)
             {
-                CheckDirStatRecurse(dh.get(), np);
+                fh->Open((np).c_str(),O_RDONLY, 0600, env);
+                time_t accessTime;
+                // printf("FillFileMapRecurse() checking %s accessTime %d ", buff, (int)accessTime);
+                fh->Read(&accessTime, 0, sizeof(time_t) == 1);
+                fcmap[np] = accessTime;
+
             }
-            else if ( fh->Open(np.c_str(),O_RDONLY, 0600, env) >= 0)
+            else if ( dh->Opendir(np.c_str(), env)  >= 0 )
             {
-                fh->Fstat(&st);
-                if ( time(0) - st.st_mtime > m_cache_expire )
-                {
-                    aMsg(kInfo, "Factory::CheckDirStatRecurse() removing file %s", &buff[0]);
-                    m_output_fs->Unlink(np.c_str());
-                }
-            }
-            else
-            {
-               aMsg(kError, "Factory::CheckDirStatRecurse() can't access file %s", np.c_str());
+                FillFileMapRecurse(dh.get(), np, fcmap);
             }
         }
     }
@@ -470,21 +456,69 @@ Factory::CheckDirStatRecurse( XrdOssDF* df, std::string& path)
 void
 Factory::TempDirCleanup()
 {
+    // check state every 2h
+    const static int sleept = 7200;
+
+    // low, high watermark
+    const static float HVM = 0.9;
+    const static float LVM = 0.7;
+
+    struct stat fstat;
     XrdOucEnv env;
-    static int mingap = 7200;
-    int interval = (m_cache_expire > mingap) ? mingap : m_cache_expire;
+    std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
     while (1)
-    {
-        // AMT: I think Opendir()/Close() should be enough, but it seems readdir does
-        //      not work properly
-        std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
-        if (dh->Opendir(m_temp_directory.c_str(), env) >= 0)
-            CheckDirStatRecurse(dh.get(), m_temp_directory);
+    {     
+        // get amout of space to erase
+        long long bytesToRemove = 0;
+        struct statvfs fsstat;
+        if(statvfs(m_temp_directory.c_str(), &fsstat) < 0 ) {
+            aMsg(kError, "Factory::TempDirCleanup() can't get statvfs for dir [%d] \n", m_temp_directory.c_str());
+            exit(1);
+        }
         else
-           aMsg(kError, "Factory::CheckDirStatRecurse() can't open %s", m_temp_directory.c_str());
+        {
+            float oc = 1 - float(fsstat.f_bfree)/fsstat.f_blocks;
+            aMsg(kInfo, "Factory::TempDirCleanup() occupade disk space == %f", oc);
+            if (oc > HVM) {
+                bytesToRemove = fsstat.f_bsize*fsstat.f_blocks*(oc - LVM);
+                aMsg(kInfo, "Factory::TempDirCleanup() need space for  %lld bytes", bytesToRemove);
+            }
+        }
 
-        dh->Close();
-        sleep(interval);
+        if (bytesToRemove > 0)
+        {
+            typedef std::map<std::string, time_t> fcmap_t;
+            fcmap_t fcmap;
+            // make a sorted map of file patch by access time
+            if (dh->Opendir(m_temp_directory.c_str(), env) >= 0) {
+                FillFileMapRecurse(dh.get(), m_temp_directory, fcmap);
+
+                // loop over map and remove files with highest value of access time
+                for (fcmap_t::iterator i = fcmap.begin(); i != fcmap.end(); ++i)
+                {  
+                    std::string path = i->first;
+                    // remove info file
+                    if (m_output_fs->Stat(path.c_str(), &fstat) == XrdOssOK)
+                    {
+                        bytesToRemove -= fstat.st_size;
+                        m_output_fs->Unlink(path.c_str());
+                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", path.c_str(), fstat.st_size);
+                    }
+
+                    // remove data file
+                    path = path.substr(0, path.size() - strlen(InfoExt));
+                    if (m_output_fs->Stat(path.c_str(), &fstat) == XrdOssOK)
+                    {
+                        bytesToRemove -= fstat.st_size;
+                        m_output_fs->Unlink(path.c_str());
+                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", path.c_str(), fstat.st_size);
+                    }
+                    if (bytesToRemove <= 0) 
+                        break;
+                }
+            }
+        }
+        sleep(sleept);
     }
+    dh->Close();
 }
-

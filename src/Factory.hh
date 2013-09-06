@@ -61,8 +61,6 @@ private:
     bool xdlib(XrdOucStream &);
     bool xexpire(XrdOucStream &);
 
-    void CheckDirStatRecurse( XrdOssDF* df, std::string& path);
-
     static XrdSysMutex m_factory_mutex;
     static Factory * m_factory;
 
@@ -77,7 +75,6 @@ private:
     std::string m_config_filename;
     std::string m_temp_directory;
     std::string m_username;
-    int m_cache_expire;
 };
 
 }
