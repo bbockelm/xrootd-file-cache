@@ -78,14 +78,17 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
       m_stats(0),
       m_cache(cache)
 {
+    aMsgIO(kDebug, &m_io, "IO::IO()");
     m_stats = new XfcStats();
 
     std::string fname;
     getFilePathFromURL(io.Path(), fname);
     fname = Factory::GetInstance().GetTempDirectory() + fname;
+    if (1) {
     m_prefetch = Factory::GetInstance().GetPrefetch(io, fname);
     pthread_t tid;
     XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
+    }
 }
 
 IO::~IO() 
@@ -106,9 +109,7 @@ IO::Detach()
 
 
     XrdOucCacheIO * io = &m_io;
-    // AMT maybe don't have to do this here but automatically in destructor
-    //  is valid io still needed for destruction? if not than nothing has to be done here
-    m_prefetch->CloseCleanly();
+
     m_prefetch.reset();
 
     // This will delete us!
@@ -123,29 +124,13 @@ int
 IO::Read (char *buff, long long off, int size)
 {
     aMsgIO(kDebug, &m_io, "IO::Read() %lld@%d", off, size);
-    // return m_io.Read(buff, off, size);
 
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
     XfcStats stat_tmp;
     
-    int nbp;
-    if ( m_prefetch->GetStatForRng(off, size, nbp))
-    {
-        XrdSysCondVar cond(0);
-        m_prefetch->AddTaskForRng(off, size, &cond);
-        {
-            XrdSysCondVarHelper xx(cond);
-            cond.Wait();
-            aMsgIO(kDump, &m_io, "IO::Read() use prefetch, cond.Wait() finsihed.");
-        }
-    }
-    else
-    {
-        aMsgIO(kDump, &m_io, "IO::Read() use Prefetch -- blocks already downlaoded.");
-    }
-
-    retval = m_prefetch->Read(buff, off, size);
+    int nbp; // num of blocks needed for statistics
+    retval = m_prefetch->Read(buff, off, size, nbp);
 
     if (retval > 0) {
         stat_tmp.HitsPrefetch = 1;
@@ -153,13 +138,6 @@ IO::Read (char *buff, long long off, int size)
         if (stat_tmp.BytesCachedPrefetch > size) 
             stat_tmp.BytesCachedPrefetch = size;
         stat_tmp.BytesPrefetch = retval;
-    }
-
-
-    // now handle statistics and return value
-
-    if (retval > 0)
-    { 
         stat_tmp.BytesRead = retval;
         stat_tmp.Hits = 1;
         aMsgIO(kDebug, &m_io, "IO::Read() read hit %d", retval);

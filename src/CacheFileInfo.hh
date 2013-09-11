@@ -28,6 +28,7 @@ public:
    bool testBit(int i) const;
 
    bool isComplete() const;
+   void checkComplete();
 
    void touch();
    void print();

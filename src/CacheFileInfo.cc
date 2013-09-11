@@ -111,6 +111,11 @@ bool CacheFileInfo::isAnythingEmptyInRng(int firstIdx, int lastIdx) const
 
    return false;
 }
+
+void CacheFileInfo::checkComplete()
+{
+   m_complete = !isAnythingEmptyInRng(0, m_sizeInBits-1);
+}
 //______________________________________________________________________________
 
 

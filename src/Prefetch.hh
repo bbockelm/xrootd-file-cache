@@ -26,10 +26,15 @@ class Prefetch {
     struct Task {
        int firstBlock;
        int lastBlock;
+       int cntFetched;
        XrdSysCondVar* condVar;
 
-       Task(int fb = 0, int lb = 0, XrdSysCondVar* iCondVar = 0):firstBlock(fb), lastBlock(lb), condVar(iCondVar) {}
+       Task(int fb = 0, int lb = 0, XrdSysCondVar* iCondVar = 0):
+          firstBlock(fb), lastBlock(lb), cntFetched(0),
+          condVar(iCondVar) {}
+
         ~Task() {}
+
         void Dump();
     };
 
@@ -37,19 +42,18 @@ public:
 
     Prefetch(XrdOss& outputFS, XrdOucCacheIO & inputFile, std::string& path);
     ~Prefetch();
-
     void Run();
     void Join();
 
     void AddTaskForRng(long long offset, int size, XrdSysCondVar* cond);
 
-    bool GetStatForRng(long long offset, int size, int& pulled);
+    bool GetStatForRng(long long offset, int size, int& pulled, int& nblocks);
 
     static const size_t s_buffer_size;
 
 protected:
 
-    ssize_t Read(char * buff, off_t offset, size_t size);
+   ssize_t Read(char * buff, off_t offset, size_t size, int& numBlocks);
     void CloseCleanly();
 
 private:
@@ -61,7 +65,7 @@ private:
     bool Open();
     bool Close();
     bool Fail(bool cleanup);
-
+    void RecordDownloadInfo();
 
     // file
     XrdOss  &m_output_fs;
@@ -73,7 +77,7 @@ private:
     std::queue<Task> m_tasks_queue;
 
     bool m_started;
-    bool m_finalized;
+    bool m_failed;
     bool m_stop;
 
     int m_numMissBlock;
