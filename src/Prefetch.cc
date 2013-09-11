@@ -25,6 +25,7 @@ Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_f
       m_temp_filename(disk_file_path),
       m_started(false),
       m_failed(false),
+      m_stop(false),
       m_numMissBlock(0),
       m_numHitBlock(0),
       m_stateCond(0) // We will explicitly lock the condition before use.
@@ -44,6 +45,7 @@ Prefetch::~Prefetch()
     if (m_cfi.isComplete() == false) 
     { 
         aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch() file not complete...");
+        fflush(stdout);
         XrdSysCondVarHelper monitor(m_stateCond);
         if (m_stop == false) {
             m_stop = true;
@@ -112,7 +114,7 @@ Prefetch::Run()
  
             long long offset = block * s_buffer_size;
             retval = m_input.Read(&buff[0], offset, s_buffer_size);
-            aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", block, retval);
+            aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
             int buffer_remaining = retval;
             int buffer_offset = 0;
             while ((buffer_remaining > 0) && // There is more to be written
@@ -211,7 +213,7 @@ Prefetch::Open()
     else
     {
         aMsgIO(kDebug, &m_input, "Info file already exists");
-        if (Dbg <= kDump) m_cfi.print();
+        // m_cfi.print();
     }
 
     return true;
@@ -224,7 +226,7 @@ Prefetch::RecordDownloadInfo()
     aMsgIO(kDebug, &m_input, "Prefetch record Info file");
     m_cfi.touch();
     m_cfi.write(m_infoFile);
-    if (Dbg <= kDump)  m_cfi.print();
+    //  m_cfi.print();
 }
 
 //______________________________________________________________________________
