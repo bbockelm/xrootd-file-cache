@@ -59,7 +59,7 @@ Prefetch::~Prefetch()
         delete m_output;
         m_output = NULL;
     }
-
+    RecordDownloadInfo();
     m_infoFile->Close();
     delete m_infoFile;
     m_infoFile = NULL;

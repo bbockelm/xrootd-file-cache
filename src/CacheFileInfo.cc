@@ -35,6 +35,10 @@ void CacheFileInfo:: setBit(int i)
 }
 //______________________________________________________________________________
 
+int CacheFileInfo::getBufferSize() const
+{
+   return m_bufferSize;
+}
 
 bool  CacheFileInfo::testBit(int i) const
 {
