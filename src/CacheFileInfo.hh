@@ -25,6 +25,7 @@ public:
 
    int getSizeInBytes() const;
    int getSizeInBits() const;
+   int getBufferSize() const;
    bool testBit(int i) const;
 
    bool isComplete() const;
@@ -35,6 +36,7 @@ public:
 
 
 private:
+   int    m_bufferSize;
    time_t m_accessTime;
    int    m_accessCnt;
    int    m_sizeInBits;

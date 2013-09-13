@@ -9,9 +9,13 @@
 #define BIT(n)       (1ULL << (n))
 using namespace XrdFileCache;
 
-CacheFileInfo::CacheFileInfo(): 
+
+const size_t s_buffer_size = 128*1024;
+
+CacheFileInfo::CacheFileInfo():
+   m_bufferSize(s_buffer_size),
    m_accessTime(0), m_accessCnt(0),
-  m_sizeInBits(0), m_buff(0), 
+   m_sizeInBits(0), m_buff(0), 
    m_complete(false) 
 {
 }
@@ -75,6 +79,7 @@ void CacheFileInfo::touch()
 int CacheFileInfo::read(XrdOssDF* fp)
 {
    int off = 0;
+   off += fp->Read(&m_bufferSize, off, sizeof(int));
    off += fp->Read(&m_accessTime, off, sizeof(time_t));
    off += fp->Read(&m_accessCnt, off, sizeof(int));
 
@@ -92,6 +97,7 @@ int CacheFileInfo::read(XrdOssDF* fp)
 int  CacheFileInfo::write(XrdOssDF* fp) const
 {
    long long  off = 0;
+   off += fp->Write(&m_bufferSize, off, sizeof(int));
    off += fp->Write(&m_accessTime, off, sizeof(time_t));
    off += fp->Write(&m_accessCnt, off, sizeof(int));
 
@@ -121,7 +127,7 @@ void CacheFileInfo::checkComplete()
 
 void  CacheFileInfo::print()
 {
-   printf("write accest %d accessCnt %d  \n",(int) m_accessTime, m_accessCnt );
+   printf("bufferSize %d accest %d accessCnt %d  \n",m_bufferSize, (int) m_accessTime, m_accessCnt );
    printf("printing b vec\n");
    for (int i = 0; i < m_sizeInBits; ++i)
    {

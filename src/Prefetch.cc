@@ -16,7 +16,6 @@
 
 using namespace XrdFileCache;
 
-const size_t Prefetch::s_buffer_size = 128*1024;
 
 Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
@@ -55,10 +54,11 @@ Prefetch::~Prefetch()
     }
 
     aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch close disk file");
-    m_output->Close();
-    delete m_output;
-    m_output = NULL;
-
+    if (m_output) {
+        m_output->Close();
+        delete m_output;
+        m_output = NULL;
+    }
 
     m_infoFile->Close();
     delete m_infoFile;
@@ -91,7 +91,7 @@ Prefetch::Run()
     aMsgIO(kDebug, &m_input, "Prefetch::Run()");
 
     std::vector<char> buff;
-    buff.reserve(s_buffer_size);
+    buff.reserve(m_cfi.getBufferSize());
     int retval = 0;
 
     Task task;
@@ -112,8 +112,8 @@ Prefetch::Run()
                 aMsgIO(kDump, &m_input, "Prefetch::Run() download block [%d]", block);
             }
  
-            long long offset = block * s_buffer_size;
-            retval = m_input.Read(&buff[0], offset, s_buffer_size);
+            long long offset = block * m_cfi.getBufferSize();
+            retval = m_input.Read(&buff[0], offset, m_cfi.getBufferSize());
             aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
             int buffer_remaining = retval;
             int buffer_offset = 0;
@@ -181,9 +181,7 @@ Prefetch::Task::Dump()
 bool
 Prefetch::Open()
 {
-
     aMsgIO(kDebug, &m_input, "Prefetch::Open() open file for disk cache");
-
 
     // Create the data file itself.
     XrdOucEnv myEnv;
@@ -192,6 +190,8 @@ Prefetch::Open()
     if (!m_output || m_output->Open(m_temp_filename.c_str(), O_RDWR, 0600, myEnv) < 0)
     {
         aMsgIO(kError, &m_input, "Prefetch::Open() can't get data-FD");
+        delete m_output;
+        m_output = NULL;
         return false;
     }
 
@@ -202,13 +202,20 @@ Prefetch::Open()
     if (!m_infoFile || m_infoFile->Open(ifn.c_str(), O_RDWR, 0600, myEnv) < 0) 
     {
         aMsgIO(kError, &m_input, "Prefetch::Open() can't get info-FD %s ", ifn.c_str());
+        delete m_output;
+        m_output = NULL;
+        delete m_infoFile;
+        m_infoFile = NULL;
+
         return false;
     }
     if ( m_cfi.read(m_infoFile) <= 0)
     {
-        int ss = (m_input.FSize() -1)/s_buffer_size + 1;
+        int ss = (m_input.FSize() -1)/m_cfi.getBufferSize() + 1;
         aMsgIO(kDebug, &m_input, "Creating new file info. Reserve space for %d blocks", ss);
         m_cfi.resizeBits(ss);
+        m_cfi.touch();
+        RecordDownloadInfo();
     }
     else
     {
@@ -224,7 +231,6 @@ void
 Prefetch::RecordDownloadInfo()
 {
     aMsgIO(kDebug, &m_input, "Prefetch record Info file");
-    m_cfi.touch();
     m_cfi.write(m_infoFile);
     //  m_cfi.print();
 }
@@ -235,8 +241,8 @@ Prefetch::AddTaskForRng(long long offset, int size, XrdSysCondVar* cond)
 {
     aMsgIO(kDebug, &m_input, "Prefetch::AddTask %lld %d cond= %p", offset, size, (void*)cond);
     m_downloadStatusMutex.Lock();
-    int first_block = offset / s_buffer_size;
-    int last_block  = (offset + size -1)/ s_buffer_size;
+    int first_block = offset / m_cfi.getBufferSize();
+    int last_block  = (offset + size -1)/ m_cfi.getBufferSize();
     m_tasks_queue.push(Task(first_block, last_block, cond)); 
     m_downloadStatusMutex.UnLock();
 }
@@ -288,8 +294,8 @@ Prefetch::GetNextTask(Task& t )
 bool
 Prefetch::GetStatForRng(long long offset, int size, int& pulled, int& nblocks)
 {
-    int first_block = offset / s_buffer_size;
-    int last_block  = (offset + size -1)/ s_buffer_size;
+    int first_block = offset /m_cfi.getBufferSize();
+    int last_block  = (offset + size -1)/ m_cfi.getBufferSize();
     nblocks         = last_block - first_block + 1;
 
     // check if prefetch is initialised
