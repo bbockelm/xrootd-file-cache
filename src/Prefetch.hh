@@ -18,6 +18,7 @@
 class XrdClient;
 namespace XrdFileCache
 {
+class CacheStats;
 
 class Prefetch {
 
@@ -49,11 +50,9 @@ public:
 
     bool GetStatForRng(long long offset, int size, int& pulled, int& nblocks);
 
-    static const size_t s_buffer_size;
-
 protected:
 
-   ssize_t Read(char * buff, off_t offset, size_t size, int& numBlocks);
+   ssize_t Read(char * buff, off_t offset, size_t size, CacheStats&);
     void CloseCleanly();
 
 private:

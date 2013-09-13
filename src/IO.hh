@@ -23,9 +23,10 @@ class XfcStats;
 namespace XrdFileCache
 {
 
+class CacheStats;
+
 class IO : public XrdOucCacheIO
 {
-
     friend class Cache;
 
 public:
@@ -66,7 +67,7 @@ private:
 
     XrdOucCacheIO & m_io;
     XrdOucCacheStats & m_statsGlobal;
-    XfcStats* m_stats;
+    CacheStats* m_stats;
     Cache & m_cache;
     PrefetchPtr m_prefetch;
 };

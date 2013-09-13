@@ -7,6 +7,7 @@
 #include "Prefetch.hh"
 #include "Factory.hh"
 #include "Cache.hh"
+#include "CacheStats.hh"
 #include "Context.hh"
 
 #include <XrdCl/XrdClFile.hh>
@@ -334,9 +335,12 @@ Prefetch::GetStatForRng(long long offset, int size, int& pulled, int& nblocks)
 //______________________________________________________________________________
 
 ssize_t
-Prefetch::Read(char *buff, off_t off, size_t size, int& nbp)
+Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
 { 
+
     int nbb; // num of blocks needed 
+    int nbp; //  num of blocks pulled
+    ssize_t retval = 0;
     if ( GetStatForRng(off, size, nbp, nbb))
     {
         if (nbp < nbb) 
@@ -351,12 +355,22 @@ Prefetch::Read(char *buff, off_t off, size_t size, int& nbp)
             newTaskCond.Wait();
             aMsgIO(kDump, &m_input, "IO::Read() use prefetch, cond.Wait() finsihed.");
         }
-        return m_output->Read(buff, off, size);
+
+        retval =  m_output->Read(buff, off, size);
+
+        stat_tmp.HitsPrefetch = 1;
+        stat_tmp.BytesCachedPrefetch = nbp * m_cfi.getBufferSize();
+        if (stat_tmp.BytesCachedPrefetch > size) 
+            stat_tmp.BytesCachedPrefetch = size;
+        stat_tmp.BytesPrefetch = retval;
+        stat_tmp.BytesRead = retval;
+        stat_tmp.Hits = 1;
     }
     else 
     {
-        return 0;
+        retval = 0;
     }
+    return retval;
 }
 
 

@@ -3,6 +3,7 @@
 #include "Prefetch.hh"
 #include "Context.hh"
 #include "Factory.hh"
+#include "CacheStats.hh"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -19,47 +20,7 @@
 
 using namespace XrdFileCache;
 
-class XfcStats : public XrdOucCacheStats
-{
-public:
-    long long    BytesCachedPrefetch;
-    long long    BytesPrefetch;
-    long long    BytesDisk;
-    int          HitsPrefetch;
-    int          HitsDisk;
 
-    inline void AddStat(XfcStats &Src)
-    {
-        XrdOucCacheStats::Add(Src);
-
-        sMutex1.Lock();
-        BytesCachedPrefetch += Src.BytesCachedPrefetch;
-        BytesPrefetch       += Src.BytesPrefetch;
-        BytesDisk           += Src.BytesDisk;
-
-        HitsPrefetch += Src.HitsPrefetch;
-        HitsDisk     += Src.HitsDisk;
-
-        sMutex1.UnLock();
-    }
-
-    XfcStats() :
-        BytesCachedPrefetch(0), 
-        BytesPrefetch(0),
-        BytesDisk(0),
-        HitsPrefetch(0), 
-        HitsDisk(0){}
-
-
-    void Dump()
-    {
-        aMsg(kError, "StatDump bCP = %lld, bP = %lld, bD =  %lld\n", BytesCachedPrefetch, BytesPrefetch, BytesDisk);
-    }
-
-private:
-    XrdSysMutex sMutex1;
-
-};
 
 void *
 PrefetchRunner(void * prefetch_void)
@@ -79,7 +40,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
       m_cache(cache)
 {
     aMsgIO(kDebug, &m_io, "IO::IO()");
-    m_stats = new XfcStats();
+    m_stats = new CacheStats();
 
     std::string fname;
     getFilePathFromURL(io.Path(), fname);
@@ -127,19 +88,10 @@ IO::Read (char *buff, long long off, int size)
 
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
-    XfcStats stat_tmp;
+    CacheStats stat_tmp;
     
-    int nbp; // num of blocks needed for statistics
-    retval = m_prefetch->Read(buff, off, size, nbp);
-
-    if (retval > 0) {
-        stat_tmp.HitsPrefetch = 1;
-        stat_tmp.BytesCachedPrefetch = nbp * Prefetch::s_buffer_size;
-        if (stat_tmp.BytesCachedPrefetch > size) 
-            stat_tmp.BytesCachedPrefetch = size;
-        stat_tmp.BytesPrefetch = retval;
-        stat_tmp.BytesRead = retval;
-        stat_tmp.Hits = 1;
+    retval = m_prefetch->Read(buff, off, size, stat_tmp);
+    if (retval > 0) {    
         aMsgIO(kDebug, &m_io, "IO::Read() read hit %d", retval);
 
         bytes_read += retval;
