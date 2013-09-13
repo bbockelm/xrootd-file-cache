@@ -233,6 +233,7 @@ Prefetch::RecordDownloadInfo()
 {
     aMsgIO(kDebug, &m_input, "Prefetch record Info file");
     m_cfi.write(m_infoFile);
+    m_infoFile->Fsync();
     //  m_cfi.print();
 }
 
