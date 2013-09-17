@@ -460,8 +460,8 @@ Factory::TempDirCleanup()
     const static int sleept = 7200;
 
     // low, high watermark
-    const static float HVM = 0.9;
-    const static float LVM = 0.7;
+    const static float HVM = 0.95;
+    const static float LVM = 0.9;
 
     struct stat fstat;
     XrdOucEnv env;
