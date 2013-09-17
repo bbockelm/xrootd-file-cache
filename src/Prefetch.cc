@@ -42,6 +42,8 @@ Prefetch::~Prefetch()
     m_cfi.checkComplete();
     m_downloadStatusMutex.UnLock();
 
+    if (m_started == false) return;
+
     if (m_cfi.isComplete() == false) 
     { 
         aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch() file not complete...");
@@ -60,10 +62,12 @@ Prefetch::~Prefetch()
         delete m_output;
         m_output = NULL;
     }
+    if (m_infoFile) {
     RecordDownloadInfo();
     m_infoFile->Close();
     delete m_infoFile;
     m_infoFile = NULL;
+    }
 }
 
 //_________________________________________________________________________________________________
