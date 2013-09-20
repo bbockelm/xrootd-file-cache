@@ -308,13 +308,15 @@ Prefetch::GetStatForRng(long long offset, int size, int& pulled, int& nblocks)
     {
         XrdSysCondVarHelper monitor(m_stateCond);
 
-        if (m_failed) return false;
+        // AMT here should be a wait, temporarily commented out
 
+        if (m_failed || !m_started ) return false;
+        /*
         if ( ! m_started)
         {
             m_stateCond.Wait();
             if (m_failed) return false;
-        }
+            }*/
     }
  
     pulled = 0;
@@ -373,7 +375,8 @@ Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
     }
     else 
     {
-        retval = 0;
+       // retval = 0
+       retval = m_input.Read(buff, off, size);
     }
     return retval;
 }
