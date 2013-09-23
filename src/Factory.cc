@@ -14,6 +14,7 @@
 #include "XrdClient/XrdClient.hh"
 #include "XrdVersion.hh"
 #include "XrdPosix/XrdPosixXrootd.hh"
+#include "XrdCl/XrdClDefaultEnv.hh"
 
 #include "Cache.hh"
 #include "Factory.hh"
@@ -102,6 +103,7 @@ Factory::Factory()
       m_username("nobody")
 {
     Dbg = kInfo;
+    XrdCl::DefaultEnv::SetLogLevel("Error");
 }
 
 extern "C"
