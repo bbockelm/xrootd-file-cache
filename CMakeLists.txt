@@ -24,7 +24,9 @@ int main() {
 }
 " HAVE_READV)
 
+if(HAVE_READV)
   add_definitions(-DHAVE_READV)
+endif()
 
 if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
   SET(CMAKE_INSTALL_LIBDIR "lib")
