@@ -102,6 +102,12 @@ Prefetch::Run()
     Task task;
     while (GetNextTask(task))
     {
+        if ((retval < 0) && (retval != -EINTR))
+        {
+            break;
+        }
+
+
         // task.Dump();
         aMsgIO(kDebug, &m_input, "Prefetch::Run() new task block[%d, %d], condVar [%c]", task.firstBlock, task.lastBlock, task.condVar ? 'x': 'o');
         for (int block = task.firstBlock; block <= task.lastBlock; block++)
@@ -120,6 +126,25 @@ Prefetch::Run()
             long long offset = block * m_cfi.getBufferSize();
             retval = m_input.Read(&buff[0], offset, m_cfi.getBufferSize());
             aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
+            if (retval < 0) {
+                aMsgIO(kError, &m_input, "Prefetch::Run() Failed for negative ret %d block %d", retval, block);
+                XrdSysCondVarHelper monitor(m_stateCond);
+                m_failed = true;
+                retval = -EINTR;
+                break;
+            }
+            else if (retval >  m_cfi.getBufferSize()) {
+                aMsgIO(kError, &m_input, "Prefetch::Run() overwrite !!! %d %d", retval, m_cfi.getBufferSize());
+                XrdSysCondVarHelper monitor(m_stateCond);
+                m_failed = true;
+                retval = -EINTR;
+                break;
+            }
+            else if (retval == 0)
+            {
+                aMsgIO(kError, &m_input, "Prefetch::Run() retval 0 fro blcok %d sleepy sec", block);
+                sleep(1);
+            }
             int buffer_remaining = retval;
             int buffer_offset = 0;
             while ((buffer_remaining > 0) && // There is more to be written
@@ -136,15 +161,12 @@ Prefetch::Run()
                 m_numMissBlock++;
             else
                 m_numHitBlock++;
+
             m_downloadStatusMutex.UnLock();
             if (m_numHitBlock % 10)
                 RecordDownloadInfo();
 
-            // break task if fail
-            if (retval < 0)
-                break;
-            else
-                task.cntFetched++;
+            task.cntFetched++;
         }
 
         RecordDownloadInfo();
@@ -263,14 +285,14 @@ Prefetch::GetNextTask(Task& t )
     m_quequeMutex.Lock();
     if (m_tasks_queue.empty())
     {
-        // give block-attoms which has not been downloaded from beginning to end
+        // give one block-attoms which has not been downloaded from beginning to end
         m_downloadStatusMutex.Lock();
         for (int i = 0; i < m_cfi.getSizeInBits(); ++i)
         {
             if (m_cfi.testBit(i) == false) 
             {
                 t.firstBlock = i;
-                t.lastBlock = t.firstBlock + 1;
+                t.lastBlock = t.firstBlock;
                 t.condVar = 0;
 
                 aMsgIO(kDebug, &m_input, "Prefetch::GetNextTask() read first undread block");
@@ -375,8 +397,11 @@ Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
     }
     else 
     {
-       // retval = 0
-       retval = m_input.Read(buff, off, size);
+        if (m_stop || m_failed)
+            retval = -1;
+        else 
+            retval = 0;
+        // retval = m_input.Read(buff, off, size);
     }
     return retval;
 }
