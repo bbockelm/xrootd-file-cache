@@ -1,6 +1,7 @@
 #include "CacheFileInfo.hh"
 #include <XrdOss/XrdOss.hh>
- 
+#include <assert.h>
+
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
@@ -24,43 +25,6 @@ CacheFileInfo::~CacheFileInfo() {
    if (m_buff) delete [] m_buff;
 }
 
-//______________________________________________________________________________
-
-
-void CacheFileInfo:: setBit(int i)
-{
-   int cn = i/8;
-   int off = i - cn*8;
-   m_buff[cn] |= BIT(off);
-}
-//______________________________________________________________________________
-
-int CacheFileInfo::getBufferSize() const
-{
-   return m_bufferSize;
-}
-
-bool  CacheFileInfo::testBit(int i) const
-{
-   int cn = i/8;
-   int off = i - cn*8;
-   return (m_buff[cn] & BIT(off)) == BIT(off);
-}
-
-int CacheFileInfo::getSizeInBytes() const
-{
-   return m_sizeInBits/8;
-}
-
-int CacheFileInfo::getSizeInBits() const
-{
-   return m_sizeInBits;
-}
-
-bool CacheFileInfo::isComplete() const
-{
-   return m_complete;
-}
 //______________________________________________________________________________
 
 
@@ -112,20 +76,7 @@ int  CacheFileInfo::write(XrdOssDF* fp) const
    return off;
 }
 
-//______________________________________________________________________________
 
-bool CacheFileInfo::isAnythingEmptyInRng(int firstIdx, int lastIdx) const
-{
-   for (int i = firstIdx; i <= lastIdx; ++i)
-      if(! testBit(i)) return true;
-
-   return false;
-}
-
-void CacheFileInfo::checkComplete()
-{
-   m_complete = !isAnythingEmptyInRng(0, m_sizeInBits-1);
-}
 //______________________________________________________________________________
 
 
