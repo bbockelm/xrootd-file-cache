@@ -125,7 +125,7 @@ Prefetch::Run()
  
             long long offset = block * m_cfi.getBufferSize();
             retval = m_input.Read(&buff[0], offset, m_cfi.getBufferSize());
-            aMsgIO(kDebug, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
+            aMsgIO(kInfo, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
             if (retval < 0) {
                 aMsgIO(kError, &m_input, "Prefetch::Run() Failed for negative ret %d block %d", retval, block);
                 XrdSysCondVarHelper monitor(m_stateCond);

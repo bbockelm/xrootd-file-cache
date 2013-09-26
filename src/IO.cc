@@ -20,8 +20,6 @@
 
 using namespace XrdFileCache;
 
-
-
 void *
 PrefetchRunner(void * prefetch_void)
 {
@@ -48,7 +46,7 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
     if (1) {
     m_prefetch = Factory::GetInstance().GetPrefetch(io, fname);
     pthread_t tid;
-    XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
+   if (!IODisablePrefetch) XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
     }
 }
 
@@ -85,6 +83,9 @@ int
 IO::Read (char *buff, long long off, int size)
 {
     aMsgIO(kDebug, &m_io, "IO::Read() %lld@%d", off, size);
+    if (IODisablePrefetch) return m_io.Read(buff, off, size);
+//______________________________________________________________________________
+
 
     ssize_t bytes_read = 0;
     ssize_t retval = 0;

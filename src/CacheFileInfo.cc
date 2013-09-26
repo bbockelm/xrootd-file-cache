@@ -1,4 +1,6 @@
 #include "CacheFileInfo.hh"
+#include "Context.hh"
+
 #include <XrdOss/XrdOss.hh>
 #include <assert.h>
 
@@ -11,10 +13,8 @@
 using namespace XrdFileCache;
 
 
-const size_t s_buffer_size = 128*1024;
-
 CacheFileInfo::CacheFileInfo():
-   m_bufferSize(s_buffer_size),
+   m_bufferSize(PrefetchDefaultBufferSize),
    m_accessTime(0), m_accessCnt(0),
    m_sizeInBits(0), m_buff(0), 
    m_complete(false) 

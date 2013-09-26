@@ -19,6 +19,8 @@ LogLevel Dbg;
 std::fstream Rec;
 const char* InfoExt = ".cinfo";
 int InfoExtLen = int(strlen(InfoExt));
+bool IODisablePrefetch = false;
+int PrefetchDefaultBufferSize = 1024*1024;
 
 const char* const s_levelNames[] = { "Dump ", "Debug","Info ", "Warn ", "Err  " };
 
@@ -71,7 +73,7 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
       int n = vsnprintf((char *)str.c_str(), size, fmt, ap);
       va_end(ap);
       if (n > -1 && n < size)
-      {/*
+      {
          std::string path = io->Path();
 
          size_t kloc = path.rfind("?");
@@ -81,7 +83,6 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
             Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str(), path.substr(split_loc+1,kloc-split_loc-1).c_str());
          }
          else
-       */
             Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str(), io->Path());
          return;
       }

@@ -29,6 +29,8 @@ extern LogLevel Dbg;
 extern std::fstream Rec;
 extern const char* InfoExt;
 extern int InfoExtLen;
+extern bool IODisablePrefetch;
+extern int PrefetchDefaultBufferSize;
 
 const char* levelName(LogLevel);
 void strprintf(LogLevel level, const char* fmt, ...);
