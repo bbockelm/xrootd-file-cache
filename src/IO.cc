@@ -83,9 +83,11 @@ int
 IO::Read (char *buff, long long off, int size)
 {
     aMsgIO(kDebug, &m_io, "IO::Read() %lld@%d", off, size);
-    if (IODisablePrefetch) return m_io.Read(buff, off, size);
-//______________________________________________________________________________
 
+    if (IODisablePrefetch) {
+       // for testing purpose only
+       return m_io.Read(buff, off, size);
+    }
 
     ssize_t bytes_read = 0;
     ssize_t retval = 0;
@@ -125,6 +127,8 @@ IO::Read (char *buff, long long off, int size)
 int
 IO::ReadV (const XrdOucIOVec *readV, int n)
 {
+   aMsgIO(kWarning, &m_io, "IO::ReadV(), get %d requests", n);
+
    ssize_t bytes_read = 0;
    size_t missing = 0;
    XrdOucIOVec missingReadV[READV_MAXCHUNKS];
@@ -150,24 +154,14 @@ IO::ReadV (const XrdOucIOVec *readV, int n)
       if (missing >= READV_MAXCHUNKS)
       { // Something went wrong in construction of this request;
          // Should be limited in higher layers to a max of 512 chunks.
+         aMsgIO(kError, &m_io, "IO::ReadV(), missing %d >  READV_MAXCHUNKS %d", missing, READV_MAXCHUNKS);
          return -1;
       }
    }
-   if (missing)
-   {
-      ssize_t retval = m_io.ReadV(missingReadV, missing);
-      if (retval >= 0)
-      {
-         return retval + bytes_read;
-      }
-      else
-      {
-         return retval;
-      }
-   }
-   return bytes_read;
-   return 0;
+
+   return  bytes_read;
 }
+
 #endif
 
 
