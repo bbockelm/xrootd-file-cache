@@ -28,7 +28,7 @@ using namespace XrdFileCache;
 
 #define TS_Xeq(x,m)    if (!strcmp(x,var)) return m(Config);
 
-XrdVERSIONINFO(XrdOucGetCache, xxx);
+XrdVERSIONINFO(XrdOucGetCache, first_cache_imp_alja);
 
 // Copy/paste from XrdOss/XrdOssApi.cc.  Unfortunately, this function
 // is not part of the stable API for extension writers, necessitating
@@ -103,7 +103,6 @@ Factory::Factory()
       m_username("nobody")
 {
     Dbg = kInfo;
-    XrdCl::DefaultEnv::SetLogLevel("Error");
 }
 
 extern "C"
