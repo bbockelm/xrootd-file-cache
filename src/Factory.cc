@@ -205,13 +205,6 @@ Factory::Config(XrdSysLogger *logger, const char *config_filename, const char *p
     if (retval)
         retval = ConfigParameters(parameters);
 
-    if (!Rec.is_open())
-    {
-       // AMT deside if records  are still necesasry, maybe debug stting 
-       // debug level is enough
-       Rec.open("/tmp/xroot_cache.log");
-    }
-
     aMsg(kInfo,"Factory::Config() Cache user name %s", m_username.c_str());
     aMsg(kInfo,"Factory::Config() Cache temporary directory %s", m_temp_directory.c_str());
     aMsg(kInfo,"Factory::Config() Cache debug level %d", Dbg);
@@ -355,13 +348,6 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             Dbg = (LogLevel)atoi(part.c_str());
         }
-        else if  ( part == "-log" )
-        {
-            getline(is, part, ' ');
-            Rec.open(part.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
-            if (Rec.is_open())    
-              aMsg(kInfo, "Factory::ConfigParameters() set user to %s", part.c_str());      
-        }
     }
 
     return true;
@@ -371,7 +357,6 @@ PrefetchPtr
 Factory::GetPrefetch(XrdOucCacheIO & io, std::string& filename)
 {
     aMsg(kInfo, "Factory::GetPrefetch(), object requested for %s ", filename.c_str());
-
   
     XrdSysMutexHelper monitor(&m_factory_mutex);
     PrefetchWeakPtrMap::const_iterator it = m_file_map.find(filename);
