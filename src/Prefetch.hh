@@ -65,6 +65,7 @@ private:
     bool Close();
     bool Fail(bool cleanup);
     void RecordDownloadInfo();
+    int getBytesToRead(Task& task, int block) const;
 
     // file
     XrdOss  &m_output_fs;

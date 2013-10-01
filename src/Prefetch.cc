@@ -57,9 +57,10 @@ Prefetch::~Prefetch()
     }
 
     aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch close disk file");
+
     if (m_output) {
-        m_output->Close();
-        delete m_output;
+       m_output->Close();
+       delete m_output;
         m_output = NULL;
     }
     if (m_infoFile) {
@@ -71,6 +72,19 @@ Prefetch::~Prefetch()
 }
 
 //_________________________________________________________________________________________________
+
+
+int  PREFETCH_MAX_ATTEMPTS = 10;
+int Prefetch::getBytesToRead(Task& task, int block) const
+{
+    if (block == (m_cfi.getSizeInBits() -1)) {
+        return m_input.FSize() - task.lastBlock * m_cfi.getBufferSize();
+    }
+    else {
+        return m_cfi.getBufferSize();
+    }
+}
+
 void
 Prefetch::Run()
 {
@@ -107,69 +121,91 @@ Prefetch::Run()
             break;
         }
 
-
-        // task.Dump();
         aMsgIO(kDebug, &m_input, "Prefetch::Run() new task block[%d, %d], condVar [%c]", task.firstBlock, task.lastBlock, task.condVar ? 'x': 'o');
         for (int block = task.firstBlock; block <= task.lastBlock; block++)
         {
             bool already;
             m_downloadStatusMutex.Lock();
             already = m_cfi.testBit(block);
+            m_cfi.print();
             m_downloadStatusMutex.UnLock();
             if (already) {
-                aMsgIO(kDump, &m_input, "Prefetch::Run() already done, continue ...");
+                aMsgIO(kDump, &m_input, "Prefetch::Run() block [%d] already done, continue ...", block);
                 continue;
             } else {
                 aMsgIO(kDump, &m_input, "Prefetch::Run() download block [%d]", block);
             }
- 
-            long long offset = block * m_cfi.getBufferSize();
-            retval = m_input.Read(&buff[0], offset, m_cfi.getBufferSize());
-            aMsgIO(kInfo, &m_input, "Prefetch::Run() retval %d for block %d", retval, block);
-            if (retval < 0) {
-                aMsgIO(kError, &m_input, "Prefetch::Run() Failed for negative ret %d block %d", retval, block);
-                XrdSysCondVarHelper monitor(m_stateCond);
-                m_failed = true;
-                retval = -EINTR;
-                break;
-            }
-            else if (retval >  m_cfi.getBufferSize()) {
-                aMsgIO(kError, &m_input, "Prefetch::Run() overwrite !!! %d %d", retval, m_cfi.getBufferSize());
-                XrdSysCondVarHelper monitor(m_stateCond);
-                m_failed = true;
-                retval = -EINTR;
-                break;
-            }
-            else if (retval == 0)
+
+            int numBytes = getBytesToRead(task, block);
+            // read block into buffer
             {
-                aMsgIO(kError, &m_input, "Prefetch::Run() retval 0 fro blcok %d sleepy sec", block);
-                sleep(1);
-            }
-            int buffer_remaining = retval;
-            int buffer_offset = 0;
-            while ((buffer_remaining > 0) && // There is more to be written
-                   (((retval = m_output->Write(&buff[buffer_offset], offset + buffer_offset, buffer_remaining)) != -1) 
-                    || (errno == EINTR)))  // Write occurs without an error
-            {
-                buffer_remaining -= retval;
-                buffer_offset += retval;
+                int missing =  numBytes;
+                long long offset = block * m_cfi.getBufferSize();
+                int cnt = 0;
+                while (missing) {
+
+                    retval = m_input.Read(&buff[0], offset, missing);
+
+                    if (retval < 0) {
+                        aMsgIO(kWarning, &m_input, "Prefetch::Run() Failed for negative ret %d block %d", retval, block);
+                        XrdSysCondVarHelper monitor(m_stateCond);
+                        m_failed = true;
+                        retval = -EINTR;
+                        break;
+                    }
+
+                    missing -= retval;
+                    offset += retval;
+                    cnt++;
+                    if (cnt > PREFETCH_MAX_ATTEMPTS) {
+                        aMsgIO(kError, &m_input, "Prefetch::Run() too many attempts\n");
+                        m_failed = true;
+                        retval = -EINTR;
+                        break;
+                    }
+
+                    if (missing) {
+                        aMsgIO(kWarning, &m_input, "Prefetch::Run() reattemot writing missing %d for block %d", missing, block);
+                    }
+                }
             }
 
+            // write block buffer into disk file
+            {
+                long long offset = block * m_cfi.getBufferSize();
+                int buffer_remaining = numBytes;
+                int buffer_offset = 0;
+                while ((buffer_remaining > 0) && // There is more to be written
+                       (((retval = m_output->Write(&buff[buffer_offset], offset + buffer_offset, buffer_remaining)) != -1) 
+                        || (errno == EINTR)))  // Write occurs without an error
+                {
+                    buffer_remaining -= retval;
+                    buffer_offset += retval;
+                    if (buffer_remaining) {
+                        aMsgIO(kWarning, &m_input, "Prefetch::Run() reattemot writing missing %d for block %d", buffer_remaining, block);
+                    }
+                }
+            }
+
+            // set downloaded bits
+            aMsgIO(kDump, &m_input, "Prefetch::Run() set bit for block [%d]", block);
             m_downloadStatusMutex.Lock();
             m_cfi.setBit(block);
+            m_downloadStatusMutex.UnLock();
+
+
+            // statistics
             if (task.condVar)
                 m_numMissBlock++;
             else
                 m_numHitBlock++;
-
-            m_downloadStatusMutex.UnLock();
             if (m_numHitBlock % 10)
                 RecordDownloadInfo();
 
             task.cntFetched++;
-        }
+        } // loop blocks in task
 
-        RecordDownloadInfo();
+
         aMsgIO(kDebug, &m_input, "Prefetch::Run() task completed ");
         // task.Dump();
         if (task.condVar)
@@ -238,8 +274,9 @@ Prefetch::Open()
     }
     if ( m_cfi.read(m_infoFile) <= 0)
     {
+        assert(m_input.FSize() > 0);
         int ss = (m_input.FSize() -1)/m_cfi.getBufferSize() + 1;
-        aMsgIO(kDebug, &m_input, "Creating new file info. Reserve space for %d blocks", ss);
+        aMsgIO(kDebug, &m_input, "Creating new file info with size %d. Reserve space for %d blocks", m_input.FSize(),  ss);
         m_cfi.resizeBits(ss);
         m_cfi.touch();
         RecordDownloadInfo();
