@@ -16,11 +16,10 @@
 namespace XrdFileCache
 {
 LogLevel Dbg;
-std::fstream Rec;
 const char* InfoExt = ".cinfo";
-int InfoExtLen = int(strlen(InfoExt));
-bool IODisablePrefetch = false;
-int PrefetchDefaultBufferSize = 1024*1024;
+const int InfoExtLen = int(strlen(InfoExt));
+const bool IODisablePrefetch = false;
+const int PrefetchDefaultBufferSize = 1024*1024;
 
 const char* const s_levelNames[] = { "Dump ", "Debug","Info ", "Warn ", "Err  " };
 
@@ -75,7 +74,7 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
       if (n > -1 && n < size)
       {
          std::string path = io->Path();
-
+         /*
          size_t kloc = path.rfind("?");
          size_t split_loc = path.rfind("//");
          if (split_loc != path.npos && kloc != path.npos) {
@@ -83,7 +82,9 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
             Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str(), path.substr(split_loc+1,kloc-split_loc-1).c_str());
          }
          else
-            Factory::GetInstance().GetSysError().Emsg(levelName(level), str.c_str(), io->Path());
+
+         */
+         Factory::GetInstance().GetSysError().Emsg(levelName(level),str.c_str());
          return;
       }
 
