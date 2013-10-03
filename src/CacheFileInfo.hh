@@ -28,7 +28,7 @@ public:
 
    int getSizeInBytes() const;
    int getSizeInBits() const;
-   int getBufferSize() const;
+   long getBufferSize() const;
    bool testBit(int i) const;
 
    bool isComplete() const;
@@ -39,7 +39,7 @@ public:
 
 
 private:
-   int    m_bufferSize;
+   long    m_bufferSize;
    time_t m_accessTime;
    int    m_accessCnt;
    int    m_sizeInBits; // number of file blocks
@@ -95,7 +95,7 @@ inline void CacheFileInfo::setBit(int i)
    m_buff[cn] |= cfiBIT(off);
 }
 
-inline int CacheFileInfo::getBufferSize() const
+inline long CacheFileInfo::getBufferSize() const
 {
    return m_bufferSize;
 }

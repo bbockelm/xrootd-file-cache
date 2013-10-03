@@ -47,7 +47,9 @@ void CacheFileInfo::touch()
 int CacheFileInfo::read(XrdOssDF* fp)
 {
    int off = 0;
-   off += fp->Read(&m_bufferSize, off, sizeof(int));
+   int bs;
+   off += fp->Read(&bs, off, sizeof(int));
+   m_bufferSize=bs;
    off += fp->Read(&m_accessTime, off, sizeof(time_t));
    off += fp->Read(&m_accessCnt, off, sizeof(int));
 
