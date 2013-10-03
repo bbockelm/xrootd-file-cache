@@ -127,7 +127,7 @@ Prefetch::Run()
             bool already;
             m_downloadStatusMutex.Lock();
             already = m_cfi.testBit(block);
-            m_cfi.print();
+            //  m_cfi.print();
             m_downloadStatusMutex.UnLock();
             if (already) {
                 aMsgIO(kDump, &m_input, "Prefetch::Run() block [%d] already done, continue ...", block);
