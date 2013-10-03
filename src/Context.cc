@@ -84,7 +84,7 @@ void strprintfIO(LogLevel level, XrdOucCacheIO* io, const char* fmt, ...)
          else
 
          */
-         Factory::GetInstance().GetSysError().Emsg(levelName(level),str.c_str());
+         Factory::GetInstance().GetSysError().Emsg(levelName(level),str.c_str(), path.c_str());
          return;
       }
 
