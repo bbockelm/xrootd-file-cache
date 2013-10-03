@@ -43,11 +43,12 @@ IO::IO(XrdOucCacheIO &io, XrdOucCacheStats &stats, Cache & cache)
     std::string fname;
     getFilePathFromURL(io.Path(), fname);
     fname = Factory::GetInstance().GetTempDirectory() + fname;
-    if (1) {
+
     m_prefetch = Factory::GetInstance().GetPrefetch(io, fname);
     pthread_t tid;
-   if (!IODisablePrefetch) XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
-    }
+   if (!IODisablePrefetch) 
+          XrdSysThread::Run(&tid, PrefetchRunner, (void *)(m_prefetch.get()), 0, "XrdFileCache Prefetcher");
+    
 }
 
 IO::~IO() 
@@ -59,10 +60,10 @@ XrdOucCacheIO *
 IO::Detach()
 {
     m_statsGlobal.Add(*m_stats);
-    aMsgIO(kInfo, &m_io, "IO::Detach() bPrefCh[%lld] bPref[%lld] bDisk[%lld] bError[%lld]", 
+    aMsgIO(kInfo, &m_io, "IO::Detach() bPrefCh[%lld] bPref[%lld] bDisk[%lld] bMiss[%lld]", 
            m_stats->BytesCachedPrefetch,  m_stats->BytesPrefetch,m_stats->BytesDisk, m_stats->BytesPass);
 
-    aMsgIO(kInfo, &m_io, "IO::Detach() hitPref[%d] hitDisk[%d] hitError[%d]",
+    aMsgIO(kInfo, &m_io, "IO::Detach() hitPref[%d] hitDisk[%d] hitMiss[%d]",
            m_stats->HitsPrefetch,  m_stats->HitsDisk, m_stats->Miss);
 
 
@@ -95,7 +96,7 @@ IO::Read (char *buff, long long off, int size)
     
     retval = m_prefetch->Read(buff, off, size, stat_tmp);
     if (retval > 0) {    
-        aMsgIO(kDebug, &m_io, "IO::Read() read hit %d", retval);
+        aMsgIO(kDebug, &m_io, "IO::Read() read from prefetch retval =  %d", retval);
 
         bytes_read += retval;
         buff += retval;
@@ -111,7 +112,7 @@ IO::Read (char *buff, long long off, int size)
         if (retval > 0) bytes_read += retval;
     }
 
-    if (retval <= 0)
+    if (retval < 0)
     {
         aMsgIO(kError, &m_io, "IO::Read(), origin bytes read %d", retval);
     }
