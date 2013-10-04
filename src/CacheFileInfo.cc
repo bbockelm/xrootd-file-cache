@@ -67,7 +67,7 @@ int CacheFileInfo::read(XrdOssDF* fp)
 int  CacheFileInfo::write(XrdOssDF* fp) const
 {
    long long  off = 0;
-   off += fp->Write(&m_bufferSize, off, sizeof(int));
+   off += fp->Write(&m_bufferSize, off, sizeof(long long));
    off += fp->Write(&m_accessTime, off, sizeof(time_t));
    off += fp->Write(&m_accessCnt, off, sizeof(int));
 
