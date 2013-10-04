@@ -84,7 +84,7 @@ int  CacheFileInfo::write(XrdOssDF* fp) const
 
 void  CacheFileInfo::print()
 {
-   printf("bufferSize %d accest %d accessCnt %d  \n",m_bufferSize, (int) m_accessTime, m_accessCnt );
+   printf("bufferSize %lld accest %d accessCnt %d  \n",m_bufferSize, (int) m_accessTime, m_accessCnt );
    printf("printing b vec\n");
    for (int i = 0; i < m_sizeInBits; ++i)
    {
