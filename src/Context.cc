@@ -19,7 +19,7 @@ LogLevel Dbg;
 const char* InfoExt = ".cinfo";
 const int InfoExtLen = int(strlen(InfoExt));
 const bool IODisablePrefetch = false;
-const int PrefetchDefaultBufferSize = 1024*1024;
+const long long PrefetchDefaultBufferSize = 1024*1024;
 
 const char* const s_levelNames[] = { "Dump ", "Debug","Info ", "Warn ", "Err  " };
 

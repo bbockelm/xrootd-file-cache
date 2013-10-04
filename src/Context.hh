@@ -29,7 +29,7 @@ extern LogLevel Dbg;
 extern const char* InfoExt;
 extern const int InfoExtLen;
 extern const bool IODisablePrefetch;
-extern const int PrefetchDefaultBufferSize;
+extern const long long PrefetchDefaultBufferSize;
 
 const char* levelName(LogLevel);
 void strprintf(LogLevel level, const char* fmt, ...);
