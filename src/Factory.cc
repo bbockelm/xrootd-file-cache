@@ -458,7 +458,7 @@ Factory::TempDirCleanup()
         long long bytesToRemove = 0;
         struct statvfs fsstat;
         if(statvfs(m_temp_directory.c_str(), &fsstat) < 0 ) {
-            aMsg(kError, "Factory::TempDirCleanup() can't get statvfs for dir [%d] \n", m_temp_directory.c_str());
+            aMsg(kError, "Factory::TempDirCleanup() can't get statvfs for dir [%s] \n", m_temp_directory.c_str());
             exit(1);
         }
         else
