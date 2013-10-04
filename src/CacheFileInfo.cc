@@ -46,17 +46,17 @@ void CacheFileInfo::touch()
 
 int CacheFileInfo::read(XrdOssDF* fp)
 {
-   int off = 0;
    int bs;
-   off += fp->Read(&bs, off, sizeof(int));
+   int off = fp->Read(&bs, off, sizeof(int));
+   if (off <= 0) return off;
+
    m_bufferSize=bs;
    off += fp->Read(&m_accessTime, off, sizeof(time_t));
    off += fp->Read(&m_accessCnt, off, sizeof(int));
-
-
    int sb;
    off += fp->Read(&sb, off, sizeof(int));
    resizeBits(sb);
+
    off += fp->Read(m_buff, off, getSizeInBytes());
    m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
 
