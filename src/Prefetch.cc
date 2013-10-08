@@ -226,9 +226,11 @@ Prefetch::Run()
             break;
         }
 
-    }
+    } // loop tasks
     m_cfi.checkComplete();
-    aMsgIO(kDebug, &m_input, "Prefetch::Run() exits !");
+    aMsgIO(kDebug, &m_input, "Prefetch::Run() exits, download %s  !", m_cfi.isComplete() ? " completed " : "unfinished");
+
+    RecordDownloadInfo();
 }
 
 
@@ -276,7 +278,7 @@ Prefetch::Open()
     {
         assert(m_input.FSize() > 0);
         int ss = (m_input.FSize() -1)/m_cfi.getBufferSize() + 1;
-        aMsgIO(kDebug, &m_input, "Creating new file info with size %d. Reserve space for %d blocks", m_input.FSize(),  ss);
+        aMsgIO(kInfo, &m_input, "Creating new file info with size %d. Reserve space for %d blocks", m_input.FSize(),  ss);
         m_cfi.resizeBits(ss);
         m_cfi.touch();
         RecordDownloadInfo();
@@ -297,7 +299,7 @@ Prefetch::RecordDownloadInfo()
     aMsgIO(kDebug, &m_input, "Prefetch record Info file");
     m_cfi.write(m_infoFile);
     m_infoFile->Fsync();
-    //  m_cfi.print();
+    // m_cfi.print();
 }
 
 //______________________________________________________________________________
