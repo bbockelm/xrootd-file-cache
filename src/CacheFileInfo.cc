@@ -46,7 +46,6 @@ void CacheFileInfo::touch()
 
 int CacheFileInfo::read(XrdOssDF* fp)
 {
-   int test = fp->getFD();
    long long bs;
    int off = 0;
 
