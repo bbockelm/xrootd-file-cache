@@ -46,8 +46,11 @@ void CacheFileInfo::touch()
 
 int CacheFileInfo::read(XrdOssDF* fp)
 {
+   int test = fp->getFD();
    long long bs;
-   int off = fp->Read(&bs, off, sizeof(long long));
+   int off = 0;
+
+   off += fp->Read(&bs, off, sizeof(long long));
    if (off <= 0) return off;
 
    m_bufferSize=bs;
@@ -60,6 +63,7 @@ int CacheFileInfo::read(XrdOssDF* fp)
    off += fp->Read(m_buff, off, getSizeInBytes());
    m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
 
+   //  print();
    return off;
 }
 
@@ -73,7 +77,7 @@ int  CacheFileInfo::write(XrdOssDF* fp) const
 
    int nb = getSizeInBits();
    off += fp->Write(&nb, off, sizeof(int));
-   off += fp->Write(m_buff, off, getSizeInBytes()-1);
+   off += fp->Write(m_buff, off, getSizeInBytes());
 
    return off;
 }
