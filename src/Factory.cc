@@ -100,7 +100,9 @@ TempDirCleanupThread(void*)
 Factory::Factory()
     : m_log(0, "XFC_"),
       m_temp_directory("/var/tmp/xrootd-file-cache"),
-      m_username("nobody")
+      m_username("nobody"),
+      m_lwm(0.95),
+      m_hwm(0.9)
 {
     Dbg = kInfo;
 }
@@ -348,6 +350,18 @@ Factory::ConfigParameters(const char * parameters)
             getline(is, part, ' ');
             Dbg = (LogLevel)atoi(part.c_str());
         }
+        else if  ( part == "-lwm" )
+        {
+            getline(is, part, ' ');
+            m_lwm = ::atof(part.c_str());
+            aMsg(kInfo, "Factory::ConfigParameters() lwm = %f", m_lwm);
+        }
+        else if  ( part == "-hwm" )
+        {
+            getline(is, part, ' ');
+            m_hwm = ::atof(part.c_str());
+            aMsg(kInfo, "Factory::ConfigParameters() hwm = %f", m_hwm);
+        }
     }
 
     return true;
@@ -445,10 +459,6 @@ Factory::TempDirCleanup()
     // check state every 2h
     const static int sleept = 7200;
 
-    // low, high watermark
-    const static float HVM = 0.95;
-    const static float LVM = 0.9;
-
     struct stat fstat;
     XrdOucEnv env;
     std::auto_ptr<XrdOssDF> dh(m_output_fs->newDir(m_username.c_str()));
@@ -465,8 +475,8 @@ Factory::TempDirCleanup()
         {
             float oc = 1 - float(fsstat.f_bfree)/fsstat.f_blocks;
             aMsg(kInfo, "Factory::TempDirCleanup() occupade disk space == %f", oc);
-            if (oc > HVM) {
-                bytesToRemove = fsstat.f_bsize*fsstat.f_blocks*(oc - LVM);
+            if (oc > m_hwm) {
+                bytesToRemove = fsstat.f_bsize*fsstat.f_blocks*(oc - m_lwm);
                 aMsg(kInfo, "Factory::TempDirCleanup() need space for  %lld bytes", bytesToRemove);
             }
         }

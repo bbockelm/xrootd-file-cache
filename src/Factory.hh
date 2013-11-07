@@ -75,6 +75,8 @@ private:
     std::string m_config_filename;
     std::string m_temp_directory;
     std::string m_username;
+    float m_lwm;
+    float m_hwm;
 };
 
 }
