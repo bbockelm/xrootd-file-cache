@@ -2,22 +2,30 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <vector>
 
 #define BIT(n)       (1ULL << (n))
 
 class Rec
 {
-private:
-   long long    m_bufferSize;
-   time_t m_accessTime;
-   int    m_accessCnt;
-   int    m_sizeInBits;
+public:
+   struct AccessStat {
+      time_t m_openTime;
+      time_t m_closeTime;
+      long long  m_bytesTransfered;
+      int  m_numHit;
+      int m_numMiss;
+   };
 
+public:
+   long long    m_bufferSize;
+   int    m_sizeInBits;
    char*  m_buff;
+   std::vector<AccessStat> m_stat;
 
    bool   m_complete; //cached
-public:
-   Rec(): m_bufferSize(1024*1024), m_accessTime(0), m_accessCnt(0),
+
+   Rec(): m_bufferSize(1024*1024),
           m_buff(0), m_sizeInBits(0),
           m_complete(false) 
    {
@@ -65,42 +73,43 @@ public:
       m_complete = c;
    }
    
-   void touch() {
-      m_accessTime = time(0);
-      m_accessCnt ++;
-   }
 
-//______________________________________________________________________________
+   //______________________________________________________________________________
 
    
    int read(FILE* fp)
    {
       int off = fread(&m_bufferSize, sizeof(long long), 1, fp);
-      if (off <=0) return -1;
-      off = fread(&m_accessTime, sizeof(time_t), 1, fp);
-      off = fread(&m_accessCnt, sizeof(int), 1, fp);
-
       int sb;
       if (fread(&sb, sizeof(int), 1, fp) != 1) return -1;
       resizeBits(sb);
       fread(m_buff,getSizeInBytes() , 1, fp);
+ 
+      AccessStat stat;
+      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
+         int off = fread( &(*i), sizeof(AccessStat), 1, fp);
+         if (off != sizeof(AccessStat))
+            break;
+      }
+
       m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
       return 1;
    }
-//______________________________________________________________________________
+   //______________________________________________________________________________
 
 
    int write(FILE* fp)
    {
       if (fwrite(&m_bufferSize, sizeof(long long), 1, fp) != 1) return -1;
-      if (fwrite(&m_accessTime, sizeof(time_t), 1, fp) != 1) return -1;
-      if (fwrite(&m_accessCnt, sizeof(int), 1, fp) != 1) return -1; 
-
       int nb = getSizeInBits();
       fwrite(&nb, sizeof(int), 1, fp); 
       fwrite(m_buff, getSizeInBytes(), 1, fp);
+
+      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
+         fwrite( &(*i), sizeof(AccessStat), 1, fp);
+      }
    }
-//______________________________________________________________________________
+   //______________________________________________________________________________
 
 
 
@@ -109,7 +118,7 @@ public:
       for (int i = firstIdx; i <= lastIdx; ++i)
          if(! testBit(i)) return true;
    }
-//______________________________________________________________________________
+   //______________________________________________________________________________
 
 
    void print()
@@ -120,18 +129,30 @@ public:
       for (int i = 0; i < m_sizeInBits; ++i)
       {
          //         printf("%d ", testBit(i));
-         cntd++;
+         if (testBit(i)) cntd++;
 
       }
       //      printf("\n");
 
-      printf("bufferSize %lld accest %d accessCnt %d nBlocks %d nDownlaoded %d %s\n",m_bufferSize,(int) m_accessTime, m_accessCnt, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
+      printf("State === bufferSize %lld nBlocks %d nDownlaoded %d %s\n",m_bufferSize, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
+
+      int cnta = 0;
+      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) 
+      {
+         AccessStat &a = *i; 
+         printf("%dopen[%d] close[%d] transfer[%lld], hit[%d] miss[%d] \n",
+                cnta++,
+                a.m_openTime, a.m_closeTime,
+                a.m_bytesTransfered, 
+                a.m_numHit, a.m_numMiss);
+      
+      }
    }
 
 };
 
 int main(int argc, char* argv[])
-{/*
+{
    {
       Rec r;
       FILE* f = fopen(argv[1],"w+");
@@ -143,16 +164,17 @@ int main(int argc, char* argv[])
       for(int i = 8; i < 18; ++i) {
          r.setBit(8+i);
       }
-      r.touch();
 
+      r.m_stat.push_back(Rec::AccessStat());
+      r.m_stat.back().m_closeTime = time(0);
       int res = r.write(f);
       printf("writing res = %d .....\n", res);
       r.print();
       fclose(f);
    }
- */
+
    {
-      // printf("reading .....\n");
+      printf("\n\n reading .....\n");
       Rec r;
       FILE* f = fopen(argv[1],"r");
       if ( r.read(f) < 0) {
@@ -161,7 +183,6 @@ int main(int argc, char* argv[])
       }
 
       r.print();
-      r.touch();
       fclose(f);
       r.isAnythingEmptyInRng(7, 11);
 
