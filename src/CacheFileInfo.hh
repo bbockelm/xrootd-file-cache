@@ -11,6 +11,7 @@ class XrdOssDF;
 
 namespace XrdFileCache
 {
+class CacheStats;
 
 class CacheFileInfo
 {
@@ -22,12 +23,15 @@ public:
    void resizeBits(int s);
    void setComplete(int c);
 
-   int read(XrdOssDF* fp);
-   int write(XrdOssDF* fp) const;
+   int Read(XrdOssDF* fp);
+   void  WriteHeader(XrdOssDF* fp) const;
+   void AppendIOStat(const CacheStats* stat, XrdOssDF* fp);
+
    bool isAnythingEmptyInRng(int firstIdx, int lastIdx) const;
 
    int getSizeInBytes() const;
    int getSizeInBits() const;
+   int getHeaderSize() const;
 
    long long getBufferSize() const;
    bool testBit(int i) const;
@@ -35,17 +39,14 @@ public:
    bool isComplete() const;
    void checkComplete();
 
-   void touch();
-   void print();
+   void print() const;
 
 
 private:
    long long    m_bufferSize;
-   time_t m_accessTime;
-   int    m_accessCnt;
    int    m_sizeInBits; // number of file blocks
-
    char*  m_buff;
+   int    m_accessCnt;
 
    bool   m_complete; //cached
 };

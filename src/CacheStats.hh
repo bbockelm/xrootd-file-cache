@@ -13,6 +13,7 @@ public:
     long long    BytesDisk;
     int          HitsPrefetch;
     int          HitsDisk;
+    time_t       AppendTime;
 
     inline void AddStat(CacheStats &Src)
     {
@@ -34,7 +35,9 @@ public:
         BytesPrefetch(0),
         BytesDisk(0),
         HitsPrefetch(0), 
-        HitsDisk(0){}
+        HitsDisk(0) {
+        AppendTime = time(0);
+    }
 
    void Dump() const;
 

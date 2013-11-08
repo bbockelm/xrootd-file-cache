@@ -50,9 +50,11 @@ public:
 
     bool GetStatForRng(long long offset, int size, int& pulled, int& nblocks);
 
-protected:
 
-   ssize_t Read(char * buff, off_t offset, size_t size, CacheStats&);
+protected:
+    ssize_t Read(char * buff, off_t offset, size_t size, CacheStats&);
+    void AppendIOStatToFileInfo(const CacheStats*);
+
     void CloseCleanly();
 
 private:

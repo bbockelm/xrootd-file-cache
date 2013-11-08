@@ -274,13 +274,12 @@ Prefetch::Open()
 
         return false;
     }
-    if ( m_cfi.read(m_infoFile) <= 0)
+    if ( m_cfi.Read(m_infoFile) <= 0)
     {
         assert(m_input.FSize() > 0);
         int ss = (m_input.FSize() -1)/m_cfi.getBufferSize() + 1;
         aMsgIO(kInfo, &m_input, "Creating new file info with size %d. Reserve space for %d blocks", m_input.FSize(),  ss);
         m_cfi.resizeBits(ss);
-        m_cfi.touch();
         RecordDownloadInfo();
     }
     else
@@ -297,7 +296,7 @@ void
 Prefetch::RecordDownloadInfo()
 {
     aMsgIO(kDebug, &m_input, "Prefetch record Info file");
-    m_cfi.write(m_infoFile);
+    m_cfi.WriteHeader(m_infoFile);
     m_infoFile->Fsync();
     // m_cfi.print();
 }
@@ -401,11 +400,19 @@ Prefetch::GetStatForRng(long long offset, int size, int& pulled, int& nblocks)
 }
 
 //______________________________________________________________________________
+void
+Prefetch::AppendIOStatToFileInfo(const CacheStats* stat)
+{
+    // lock in case several IOs want to write in *cinfo file
+    XrdSysCondVarHelper monitor(m_stateCond);
+    m_cfi.AppendIOStat(stat, (XrdOssDF*)m_infoFile);
+}
+
+//______________________________________________________________________________
 
 ssize_t
 Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
 { 
-
     int nbb; // num of blocks needed 
     int nbp; //  num of blocks pulled
     ssize_t retval = 0;
@@ -432,7 +439,8 @@ Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
             stat_tmp.BytesCachedPrefetch = size;
         stat_tmp.BytesPrefetch = retval;
         stat_tmp.BytesRead = retval;
-        stat_tmp.Hits = 1;
+        stat_tmp.Hits = nbp;
+        stat_tmp.Miss = nbb-nbp;
     }
     else 
     {
@@ -440,7 +448,6 @@ Prefetch::Read(char *buff, off_t off, size_t size, CacheStats& stat_tmp)
             retval = -1;
         else 
             retval = 0;
-        // retval = m_input.Read(buff, off, size);
     }
     return retval;
 }

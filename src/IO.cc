@@ -67,7 +67,7 @@ IO::Detach()
            m_stats->HitsPrefetch,  m_stats->HitsDisk, m_stats->Miss);
 
 
-
+    m_prefetch->AppendIOStatToFileInfo(m_stats);
     XrdOucCacheIO * io = &m_io;
 
     m_prefetch.reset();
