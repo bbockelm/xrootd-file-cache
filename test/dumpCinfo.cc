@@ -4,155 +4,161 @@
 #include <stdlib.h>
 #include <vector>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #define BIT(n)       (1ULL << (n))
 
 class Rec
 {
 public:
-   struct AccessStat {
-      time_t m_openTime;
-      time_t m_closeTime;
-      long long  m_bytesTransfered;
-      int  m_numHit;
-      int m_numMiss;
-   };
+    struct AStat {
+        time_t AppendTime;
+        time_t DetachTime;
+        long long BytesRead;
+        int Hits;
+        int Miss;
+
+        void print() { printf("time[%d/%d] bread %lld hits %d miss %d \n", (int)AppendTime, (int)DetachTime, BytesRead, Hits, Miss);}
+    };
 
 public:
-   long long    m_bufferSize;
-   int    m_sizeInBits;
-   char*  m_buff;
-   std::vector<AccessStat> m_stat;
+    long long    m_bufferSize;
+    int          m_sizeInBits;
+    char*        m_buff;
+    int m_accessCnt;
+    std::vector<AStat> m_stat;
 
-   bool   m_complete; //cached
+    bool   m_complete; //cached
 
-   Rec(): m_bufferSize(1024*1024),
-          m_buff(0), m_sizeInBits(0),
-          m_complete(false) 
-   {
-   }
+    Rec(): m_bufferSize(1024*1024),
+                           m_buff(0), m_sizeInBits(0),
+                           m_complete(false) 
+    {
+        struct stat st;
+    }
 
-   ~Rec() {
-      if (m_buff) delete [] m_buff;
-   }
+    ~Rec() {
+        if (m_buff) delete [] m_buff;
+    }
 
-   void setBit(int i)
-   {
-      int cn = i/8;
-      int off = i - cn*8;
-      m_buff[cn] |= BIT(off);
-   }
+    void setBit(int i)
+    {
+        int cn = i/8;
+        int off = i - cn*8;
+        m_buff[cn] |= BIT(off);
+    }
 
-   bool testBit(int i) const
-   {
-      int cn = i/8;
-      int off = i - cn*8;
-      return (m_buff[cn] & BIT(off)) == BIT(off);
-   }
-   void resizeBits(int s)
-   {
-      m_sizeInBits = s;
-      m_buff = (char*)malloc(getSizeInBytes());
-      memset(m_buff, 0, getSizeInBytes());
-   }
+    bool testBit(int i) const
+    {
+        int cn = i/8;
+        int off = i - cn*8;
+        return (m_buff[cn] & BIT(off)) == BIT(off);
+    }
+    void resizeBits(int s)
+    {
+        printf("num BLOCKS = %d \n", s);
+        m_sizeInBits = s;
+        m_buff = (char*)malloc(getSizeInBytes());
+        memset(m_buff, 0, getSizeInBytes());
+    }
 
-   int getSizeInBytes() const
-   {
-      return (m_sizeInBits-1)/8 + 1;
-   }
+    int getSizeInBytes() const
+    {
+        return (m_sizeInBits-1)/8 + 1;
+    }
 
-   int getSizeInBits() const
-   {
-      return m_sizeInBits;
-   }
+    int getSizeInBits() const
+    {
+        return m_sizeInBits;
+    }
 
-   bool isComplete() const {
-      return m_complete;
-   }
+    bool isComplete() const {
+        return m_complete;
+    }
 
-   void setComplete(int c) {
-      m_complete = c;
-   }
+    void setComplete(int c) {
+        m_complete = c;
+    }
    
 
-   //______________________________________________________________________________
+    //______________________________________________________________________________
 
-   
-   int read(FILE* fp)
-   {
-      int off = fread(&m_bufferSize, sizeof(long long), 1, fp);
-      int sb;
-      if (fread(&sb, sizeof(int), 1, fp) != 1) return -1;
-      resizeBits(sb);
-      fread(m_buff,getSizeInBytes() , 1, fp);
+    //#include <assert.h>
+    int read(FILE* fp)
+    {
+        int off = fread(&m_bufferSize, sizeof(long long), 1, fp);
+        int sb;
+        if (fread(&sb, sizeof(int), 1, fp) != 1) return -1;
+        resizeBits(sb);
+        fread(m_buff, getSizeInBytes() , 1, fp);
  
-      AccessStat stat;
-      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
-         int off = fread( &(*i), sizeof(AccessStat), 1, fp);
-         if (off != sizeof(AccessStat))
-            break;
-      }
+        off = fread(&m_accessCnt, sizeof(int), 1, fp);
+        m_stat.resize(m_accessCnt);
+        AStat stat;
+        int ai = 0;
 
-      m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
-      return 1;
-   }
-   //______________________________________________________________________________
+        for (std::vector<AStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
+            int off = fread( &(*i), sizeof(AStat), 1, fp);
+            if(off !=  1) { printf("Astat %d ASSER %d off %d \n",sizeof(AStat), ai++, (int)off ); exit(1);}
+        }
 
-
-   int write(FILE* fp)
-   {
-      if (fwrite(&m_bufferSize, sizeof(long long), 1, fp) != 1) return -1;
-      int nb = getSizeInBits();
-      fwrite(&nb, sizeof(int), 1, fp); 
-      fwrite(m_buff, getSizeInBytes(), 1, fp);
-
-      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
-         fwrite( &(*i), sizeof(AccessStat), 1, fp);
-      }
-   }
-   //______________________________________________________________________________
+        m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
+        return 1;
+    }
+    //______________________________________________________________________________
 
 
+    int write(FILE* fp)
+    {
+        if (fwrite(&m_bufferSize, sizeof(long long), 1, fp) != 1) return -1;
+        int nb = getSizeInBits();
+        fwrite(&nb, sizeof(int), 1, fp); 
+        fwrite(m_buff, getSizeInBytes(), 1, fp);
 
-   bool isAnythingEmptyInRng(int firstIdx, int lastIdx)
-   {
-      for (int i = firstIdx; i <= lastIdx; ++i)
-         if(! testBit(i)) return true;
-   }
-   //______________________________________________________________________________
+        for (std::vector<AStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
+            fwrite( &(*i), sizeof(AStat), 1, fp);
+        }
+    }
+    //______________________________________________________________________________
 
 
-   void print()
-   {
 
-      int cntd = 0;
-      //    printf("printing b vec\n");
-      for (int i = 0; i < m_sizeInBits; ++i)
-      {
-         //         printf("%d ", testBit(i));
-         if (testBit(i)) cntd++;
+    bool isAnythingEmptyInRng(int firstIdx, int lastIdx)
+    {
+        for (int i = firstIdx; i <= lastIdx; ++i)
+            if(! testBit(i)) return true;
+    }
+    //______________________________________________________________________________
 
-      }
-      //      printf("\n");
 
-      printf("State === bufferSize %lld nBlocks %d nDownlaoded %d %s\n",m_bufferSize, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
+    void print()
+    {
 
-      int cnta = 0;
-      for (std::vector<AccessStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) 
-      {
-         AccessStat &a = *i; 
-         printf("%dopen[%d] close[%d] transfer[%lld], hit[%d] miss[%d] \n",
-                cnta++,
-                a.m_openTime, a.m_closeTime,
-                a.m_bytesTransfered, 
-                a.m_numHit, a.m_numMiss);
+        int cntd = 0;
+        printf("printing  %d blocks: \n", m_sizeInBits);
+        for (int i = 0; i < m_sizeInBits; ++i)
+        {
+            printf("%d ", testBit(i));
+            if (testBit(i)) cntd++;
+
+        }
+        printf("\n");
+
+        printf("State === bufferSize %lld nBlocks %d nDownlaoded %d %s\n",m_bufferSize, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
+        printf("num access %d \n", m_accessCnt);
+        for (int i=0; i < m_accessCnt; ++i)
+        {  
+            printf("access[%d]: ", i);
+            m_stat[i].print();
       
-      }
-   }
+        }
+    }
 
 };
 
 int main(int argc, char* argv[])
-{
+{/*
    {
       Rec r;
       FILE* f = fopen(argv[1],"w+");
@@ -165,14 +171,14 @@ int main(int argc, char* argv[])
          r.setBit(8+i);
       }
 
-      r.m_stat.push_back(Rec::AccessStat());
+      r.m_stat.push_back(Rec::AStat());
       r.m_stat.back().m_closeTime = time(0);
       int res = r.write(f);
       printf("writing res = %d .....\n", res);
       r.print();
       fclose(f);
    }
-
+ */
    {
       printf("\n\n reading .....\n");
       Rec r;
