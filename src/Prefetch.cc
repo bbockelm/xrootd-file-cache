@@ -21,6 +21,7 @@ using namespace XrdFileCache;
 Prefetch::Prefetch(XrdOss &outputFS, XrdOucCacheIO &inputIO, std::string& disk_file_path)
     : m_output_fs(outputFS),
       m_output(NULL),
+      m_infoFile(NULL),
       m_input(inputIO),
       m_temp_filename(disk_file_path),
       m_started(false),
@@ -56,7 +57,7 @@ Prefetch::~Prefetch()
         }
     }
 
-    aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch close disk file");
+    aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch close data file");
 
     if (m_output) {
        m_output->Close();
@@ -65,6 +66,8 @@ Prefetch::~Prefetch()
     }
     if (m_infoFile) {
     RecordDownloadInfo();
+    aMsgIO(kInfo, &m_input, "Prefetch::~Prefetch close info file");
+
     m_infoFile->Close();
     delete m_infoFile;
     m_infoFile = NULL;
@@ -106,7 +109,7 @@ Prefetch::Run()
             return;
         }
     }
-
+    assert(m_infoFile);
     aMsgIO(kDebug, &m_input, "Prefetch::Run()");
 
     std::vector<char> buff;
@@ -223,7 +226,8 @@ Prefetch::Run()
             aMsgIO(kDebug, &m_input, "Prefetch::Run() %s", "stopping for a clean cause");
             retval = -EINTR;
             m_stateCond.Signal();
-            break;
+	    //break;
+	    return; // AMT ??? 
         }
 
     } // loop tasks
@@ -404,8 +408,9 @@ void
 Prefetch::AppendIOStatToFileInfo(const CacheStats* stat)
 {
     // lock in case several IOs want to write in *cinfo file
-    XrdSysCondVarHelper monitor(m_stateCond);
+    m_downloadStatusMutex.Lock();
     m_cfi.AppendIOStat(stat, (XrdOssDF*)m_infoFile);
+    m_downloadStatusMutex.UnLock();
 }
 
 //______________________________________________________________________________
