@@ -100,7 +100,12 @@ public:
 
         for (std::vector<AStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
             int off = fread( &(*i), sizeof(AStat), 1, fp);
-            if(off !=  1) { printf("Astat %d ASSER %d off %d \n",sizeof(AStat), ai++, (int)off ); exit(1);}
+            if(off !=  1)
+{ printf("END REaD Astat %d ASSER %d off %d \n",sizeof(AStat), ai++, (int)off ); exit(1);}
+	    else
+	      {
+		printf("ASTAT read OK !");
+	      }
         }
 
         m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
@@ -132,14 +137,14 @@ public:
     //______________________________________________________________________________
 
 
-    void print()
+    void print(bool full)
     {
 
         int cntd = 0;
         printf("printing  %d blocks: \n", m_sizeInBits);
         for (int i = 0; i < m_sizeInBits; ++i)
         {
-            printf("%d ", testBit(i));
+           if (full) printf("%d ", testBit(i));
             if (testBit(i)) cntd++;
 
         }
@@ -158,7 +163,13 @@ public:
 };
 
 int main(int argc, char* argv[])
-{/*
+{
+bool fullprint = false;
+if (argc > 2) {
+fullprint = true;
+}
+
+/*
    {
       Rec r;
       FILE* f = fopen(argv[1],"w+");
@@ -188,7 +199,7 @@ int main(int argc, char* argv[])
          exit(1);
       }
 
-      r.print();
+      r.print(fullprint);
       fclose(f);
       r.isAnythingEmptyInRng(7, 11);
 
