@@ -42,6 +42,9 @@ void  CacheFileInfo::resizeBits(int s)
 
 int CacheFileInfo::Read(XrdOssDF* fp)
 {
+    // does not need lock, called only in Prefetch::Open
+    // before Prefetch::Run() starts
+
    int off = 0;
    off += fp->Read(&m_bufferSize, off, sizeof(long long));
    if (off <= 0) return off;
@@ -51,7 +54,7 @@ int CacheFileInfo::Read(XrdOssDF* fp)
    resizeBits(sb);
 
    off += fp->Read(m_buff, off, getSizeInBytes());
-   m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
+   m_complete = isAnythingEmptyInRng(0, sb-1) ? false : true;
 
    assert (off = getHeaderSize());
 
@@ -69,8 +72,9 @@ int CacheFileInfo::getHeaderSize() const
 }
 
 //______________________________________________________________________________
-void  CacheFileInfo::WriteHeader(XrdOssDF* fp) const
+void  CacheFileInfo::WriteHeader(XrdOssDF* fp)
 {
+  m_writeMutex.Lock();
    long long  off = 0;
    off += fp->Write(&m_bufferSize, off, sizeof(long long));
    int nb = getSizeInBits();
@@ -78,11 +82,13 @@ void  CacheFileInfo::WriteHeader(XrdOssDF* fp) const
    off += fp->Write(m_buff, off, getSizeInBytes());
 
    assert (off == getHeaderSize());
+  m_writeMutex.UnLock();
 }
 
 //______________________________________________________________________________
 void  CacheFileInfo::AppendIOStat(const CacheStats* caches, XrdOssDF* fp)
 {
+  m_writeMutex.Lock();
    struct AStat {
       time_t AppendTime;
       time_t DetachTime;
@@ -106,10 +112,10 @@ void  CacheFileInfo::AppendIOStat(const CacheStats* caches, XrdOssDF* fp)
    as.Hits = caches->Hits;
    as.Miss = caches->Miss;
 
-   //printf("====================== off[%d] Write access cnt = %d , bread = %lld \n",(int)off, m_accessCnt, as.BytesRead );
+   aMsg(kInfo, "====================== CacheFileInfo::AppendIOStat off[%d] Write access cnt = %d , bread = %lld \n",(int)off, m_accessCnt, as.BytesRead );
    long long ws = fp->Write(&as, off, sizeof(AStat));
    assert(ws == sizeof(AStat));
-
+   m_writeMutex.UnLock();
 }
 
 //______________________________________________________________________________

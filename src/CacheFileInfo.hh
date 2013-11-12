@@ -3,8 +3,8 @@
 
 #include <stdio.h>
 #include <time.h>
-
 #include <assert.h>
+#include <XrdSys/XrdSysPthread.hh>
 class XrdOssDF;
 
 #define cfiBIT(n)       (1ULL << (n))
@@ -24,7 +24,7 @@ public:
    void setComplete(int c);
 
    int Read(XrdOssDF* fp);
-   void  WriteHeader(XrdOssDF* fp) const;
+   void  WriteHeader(XrdOssDF* fp);
    void AppendIOStat(const CacheStats* stat, XrdOssDF* fp);
 
    bool isAnythingEmptyInRng(int firstIdx, int lastIdx) const;
@@ -49,6 +49,8 @@ private:
    int    m_accessCnt;
 
    bool   m_complete; //cached
+  
+  XrdSysMutex  m_writeMutex;
 };
 
 inline bool  CacheFileInfo::testBit(int i) const
