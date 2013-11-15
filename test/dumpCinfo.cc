@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <vector>
 
+       #include <sys/file.h>
+       #include <sys/errno.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -33,6 +36,7 @@ public:
 
     Rec(): m_bufferSize(1024*1024),
                            m_buff(0), m_sizeInBits(0),
+                          m_accessCnt(0),
                            m_complete(false) 
     {
         struct stat st;
@@ -86,31 +90,35 @@ public:
 
     //#include <assert.h>
     int read(FILE* fp)
-    {
-        int off = fread(&m_bufferSize, sizeof(long long), 1, fp);
-        int sb;
-        if (fread(&sb, sizeof(int), 1, fp) != 1) return -1;
-        resizeBits(sb);
-        fread(m_buff, getSizeInBytes() , 1, fp);
+   {
+      int fl = flock(fileno(fp),LOCK_SH );
+      if (fl) printf("read lock err %s \n", strerror(errno));
+      int off = fread(&m_bufferSize, sizeof(long long), 1, fp);
+      int sb;
+      if (fread(&sb, sizeof(int), 1, fp) != 1) return -1;
+      resizeBits(sb);
+      fread(m_buff, getSizeInBytes() , 1, fp);
  
-        off = fread(&m_accessCnt, sizeof(int), 1, fp);
-        m_stat.resize(m_accessCnt);
-        AStat stat;
-        int ai = 0;
+      off = fread(&m_accessCnt, sizeof(int), 1, fp);
 
-        for (std::vector<AStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i) {
-            int off = fread( &(*i), sizeof(AStat), 1, fp);
-            if(off !=  1)
-{ printf("END REaD Astat %d ASSER %d off %d \n",sizeof(AStat), ai++, (int)off ); exit(1);}
-	    else
-	      {
-		printf("ASTAT read OK !");
-	      }
-        }
+      m_stat.resize(m_accessCnt);
+      AStat stat;
+      int ai = 0;
+      for (std::vector<AStat>::iterator i = m_stat.begin(); i != m_stat.end(); ++i, ai++) {
+         int off = fread( &(*i), sizeof(AStat), 1, fp);
+         if(off !=  1)
+         { 
+            printf("AStat[%d] read error, AStat size[%d] read returned %d \n",ai, sizeof(AStat), (int)off );
+            return -1;
+         }
+      }
 
-        m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
-        return 1;
-    }
+      int flu = flock(fileno(fp),LOCK_UN);
+      if (flu) printf("read un-lock err %s \n", strerror(errno));
+
+      m_complete = isAnythingEmptyInRng(0, sb) ? false : true;
+      return 1;
+   }
     //______________________________________________________________________________
 
 
@@ -137,28 +145,31 @@ public:
     //______________________________________________________________________________
 
 
-    void print(bool full)
-    {
+   void print(bool full)
+   {
+      bool printBits = false;
+      int cntd = 0;
+      if (printBits) printf("printing  %d blocks: \n", m_sizeInBits);
+      for (int i = 0; i < m_sizeInBits; ++i)
+      {
+         if (printBits) printf("%d ", testBit(i));
+         if (testBit(i)) cntd++;
 
-        int cntd = 0;
-        printf("printing  %d blocks: \n", m_sizeInBits);
-        for (int i = 0; i < m_sizeInBits; ++i)
-        {
-           if (full) printf("%d ", testBit(i));
-            if (testBit(i)) cntd++;
+      }
+      if (printBits) printf("\n");
 
-        }
-        printf("\n");
+      printf("State === bufferSize %lld nBlocks %d nDownlaoded %d %s\n",m_bufferSize, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
 
-        printf("State === bufferSize %lld nBlocks %d nDownlaoded %d %s\n",m_bufferSize, m_sizeInBits , cntd, (m_sizeInBits == cntd) ? " complete" :"");
-        printf("num access %d \n", m_accessCnt);
-        for (int i=0; i < m_accessCnt; ++i)
-        {  
+      if (full) {
+         printf("num access %d \n", m_accessCnt);
+         for (int i=0; i < m_accessCnt; ++i)
+         {  
             printf("access[%d]: ", i);
             m_stat[i].print();
       
-        }
-    }
+         }
+      }
+   }
 
 };
 
@@ -191,16 +202,14 @@ fullprint = true;
    }
  */
    {
-      printf("\n\n reading .....\n");
+      printf("\n----------------------------------------------\n");
+      printf("%s .....\n", argv[1]);
       Rec r;
       FILE* f = fopen(argv[1],"r");
-      if ( r.read(f) < 0) {
-         printf("read failed \n");
-         exit(1);
-      }
-
-      r.print(fullprint);
+   int res = r.read(f);
       fclose(f);
+
+      r.print(res >=0);
       r.isAnythingEmptyInRng(7, 11);
 
    }
