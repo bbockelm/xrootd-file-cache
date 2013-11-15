@@ -414,50 +414,53 @@ Factory::Decide(std::string &filename)
 void
 FillFileMapRecurse( XrdOssDF* df, std::string& path, std::map<std::string, time_t>& fcmap)
 {
-    char buff[256];
-    XrdOucEnv env;
-    int rdr;
+   char buff[256];
+   XrdOucEnv env;
+   int rdr;
 
-    Factory& factory = Factory::GetInstance();
-    while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
-    {
-        // printf("readdir [%s]\n", buff);
-        std::string np = path + "/" + std::string(buff);
-        int fname_len = strlen(&buff[0]);
-        if (fname_len == 0  )
-        {
-            // std::cout << "Finish read dir.[" << np <<"] Break loop \n";
-            break;
-        }
+   Factory& factory = Factory::GetInstance();
+   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
+   {
+      // printf("readdir [%s]\n", buff);
+      std::string np = path + "/" + std::string(buff);
+      int fname_len = strlen(&buff[0]);
+      if (fname_len == 0  )
+      {
+         // std::cout << "Finish read dir.[" << np <<"] Break loop \n";
+         break;
+      }
 
-        if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
-        {
-            std::auto_ptr<XrdOssDF> dh(factory.GetOss()->newDir(factory.GetUsername().c_str()));   
-            std::auto_ptr<XrdOssDF> fh(factory.GetOss()->newFile(factory.GetUsername().c_str()));   
+      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
+      {
+         std::auto_ptr<XrdOssDF> dh(factory.GetOss()->newDir(factory.GetUsername().c_str()));   
+         std::auto_ptr<XrdOssDF> fh(factory.GetOss()->newFile(factory.GetUsername().c_str()));   
 
-            if (fname_len > InfoExtLen && strncmp(&buff[fname_len - InfoExtLen ], InfoExt , InfoExtLen) == 0)
+         if (fname_len > InfoExtLen && strncmp(&buff[fname_len - InfoExtLen ], InfoExt , InfoExtLen) == 0)
+         {
+            fh->Open((np).c_str(),O_RDONLY, 0600, env);
+            CacheFileInfo cinfo;
+            time_t accessTime;
+            cinfo.Read(fh.get());
+            if (cinfo.getLatestAttachTime(accessTime, fh.get()))
             {
-                fh->Open((np).c_str(),O_RDONLY, 0600, env);
-                time_t accessTime;
-                // printf("FillFileMapRecurse() checking %s accessTime %d ", buff, (int)accessTime);
-                fh->Read(&accessTime, 0, sizeof(time_t) == 1);
-                fcmap[np] = accessTime;
-
+               aMsg(kDebug, "FillFileMapRecurse() checking %s accessTime %d ", buff, (int)accessTime);
+               fcmap[np] = accessTime;
             }
-            else if ( dh->Opendir(np.c_str(), env)  >= 0 )
-            {
-                FillFileMapRecurse(dh.get(), np, fcmap);
-            }
-        }
-    }
+         }
+         else if ( dh->Opendir(np.c_str(), env)  >= 0 )
+         {
+            FillFileMapRecurse(dh.get(), np, fcmap);
+         }
+      }
+   }
 }
 
 
 void
 Factory::TempDirCleanup()
 {
-    // check state every 2h
-    const static int sleept = 7200;
+    // check state every sleepts seconds
+    const static int sleept = 180;
 
     struct stat fstat;
     XrdOucEnv env;
