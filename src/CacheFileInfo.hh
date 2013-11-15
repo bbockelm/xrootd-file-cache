@@ -32,6 +32,7 @@ public:
    int getSizeInBytes() const;
    int getSizeInBits() const;
    int getHeaderSize() const;
+   bool getLatestAttachTime(time_t& t, XrdOssDF* fp) const;
 
    long long getBufferSize() const;
    bool testBit(int i) const;
@@ -43,6 +44,14 @@ public:
 
 
 private:
+   struct AStat {
+      time_t AppendTime;
+      time_t DetachTime;
+      long long BytesRead;
+      int Hits;
+      int Miss;
+   };
+
    long long    m_bufferSize;
    int    m_sizeInBits; // number of file blocks
    char*  m_buff;

@@ -1,6 +1,8 @@
 #include "CacheFileInfo.hh"
 #include "Context.hh"
 #include "CacheStats.hh"
+#include <sys/file.h>
+
 
 #include <XrdOss/XrdOss.hh>
 #include <assert.h>
@@ -74,28 +76,34 @@ int CacheFileInfo::getHeaderSize() const
 //______________________________________________________________________________
 void  CacheFileInfo::WriteHeader(XrdOssDF* fp)
 {
-  m_writeMutex.Lock();
+   // m_writeMutex.Lock();
+   int fl = flock(fp->getFD(),  LOCK_EX);
+   if (fl) aMsg(kError, "WriteHeader() lock failed %s \n", strerror(errno));
+
    long long  off = 0;
    off += fp->Write(&m_bufferSize, off, sizeof(long long));
+
    int nb = getSizeInBits();
    off += fp->Write(&nb, off, sizeof(int));
    off += fp->Write(m_buff, off, getSizeInBytes());
 
+   int flu = flock(fp->getFD(),  LOCK_UN);
+   if (flu) aMsg(kError,"WriteHeader() un-lock failed \n");
+
    assert (off == getHeaderSize());
-  m_writeMutex.UnLock();
+   //m_writeMutex.UnLock();
+
 }
 
 //______________________________________________________________________________
 void  CacheFileInfo::AppendIOStat(const CacheStats* caches, XrdOssDF* fp)
 {
-  m_writeMutex.Lock();
-   struct AStat {
-      time_t AppendTime;
-      time_t DetachTime;
-      long long BytesRead;
-      int Hits;
-      int Miss;
-   };
+   // m_writeMutex.Lock();
+
+   int fl = flock(fp->getFD(),  LOCK_EX);
+   if (fl) aMsg(kError,"AppendIOSstat() lock failed \n");
+
+   
 
    m_accessCnt++;
 
@@ -112,10 +120,42 @@ void  CacheFileInfo::AppendIOStat(const CacheStats* caches, XrdOssDF* fp)
    as.Hits = caches->Hits;
    as.Miss = caches->Miss;
 
+   int flu = flock(fp->getFD(),  LOCK_UN);
+   if (flu) aMsg(kError,"AppendStat() un-lock failed \n");
+
    aMsg(kInfo, "====================== CacheFileInfo::AppendIOStat off[%d] Write access cnt = %d , bread = %lld \n",(int)off, m_accessCnt, as.BytesRead );
    long long ws = fp->Write(&as, off, sizeof(AStat));
    assert(ws == sizeof(AStat));
-   m_writeMutex.UnLock();
+   //  m_writeMutex.UnLock();
+}
+
+//______________________________________________________________________________
+bool  CacheFileInfo::getLatestAttachTime(time_t& t, XrdOssDF* fp) const
+{
+   bool res = false;
+   int fl = flock(fp->getFD(),  LOCK_SH);
+   if (fl) aMsg(kError,"getLatestAttachTime() lock failed \n");
+   if (m_accessCnt) {
+      AStat stat;
+      long long off = getHeaderSize() + sizeof(int) + (m_accessCnt-1)*sizeof(AStat);
+      int res = fp->Read(&stat, off, sizeof(AStat));
+      if (res == sizeof(AStat))
+      {
+         t = stat.DetachTime;
+         res = true;
+      }
+      else
+      {
+         aMsg(kError, "Can't get latest access stat. read bytes = %d", res);
+      }
+   }
+   else {
+      aMsg(kWarning, "Can't get access stat. read bytes = %d", res);
+   }
+
+   int fu = flock(fp->getFD(),  LOCK_UN);
+   if (fu) aMsg(kError,"getLatestAttachTime() lock failed \n");
+   return res;
 }
 
 //______________________________________________________________________________
