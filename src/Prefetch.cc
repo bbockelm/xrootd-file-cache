@@ -282,7 +282,7 @@ Prefetch::Open()
     {
         assert(m_input.FSize() > 0);
         int ss = (m_input.FSize() -1)/m_cfi.getBufferSize() + 1;
-        aMsgIO(kInfo, &m_input, "Creating new file info with size %d. Reserve space for %d blocks", m_input.FSize(),  ss);
+        aMsgIO(kInfo, &m_input, "Creating new file info with size %lld. Reserve space for %d blocks", m_input.FSize(),  ss);
         m_cfi.resizeBits(ss);
         RecordDownloadInfo();
     }
