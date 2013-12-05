@@ -138,7 +138,7 @@ bool  CacheFileInfo::getLatestAttachTime(time_t& t, XrdOssDF* fp) const
    if (m_accessCnt) {
       AStat stat;
       long long off = getHeaderSize() + sizeof(int) + (m_accessCnt-1)*sizeof(AStat);
-      int res = fp->Read(&stat, off, sizeof(AStat));
+      res = fp->Read(&stat, off, sizeof(AStat));
       if (res == sizeof(AStat))
       {
          t = stat.DetachTime;
