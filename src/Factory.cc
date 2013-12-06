@@ -414,45 +414,51 @@ Factory::Decide(std::string &filename)
 void
 FillFileMapRecurse( XrdOssDF* df, std::string& path, std::map<std::string, time_t>& fcmap)
 {
-   char buff[256];
-   XrdOucEnv env;
-   int rdr;
+    char buff[256];
+    XrdOucEnv env;
+    int rdr;
 
-   Factory& factory = Factory::GetInstance();
-   while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
-   {
-      // printf("readdir [%s]\n", buff);
-      std::string np = path + "/" + std::string(buff);
-      int fname_len = strlen(&buff[0]);
-      if (fname_len == 0  )
-      {
-         // std::cout << "Finish read dir.[" << np <<"] Break loop \n";
-         break;
-      }
+    Factory& factory = Factory::GetInstance();
+    while ( (rdr = df->Readdir(&buff[0], 256)) >= 0)
+    {
+        // printf("readdir [%s]\n", buff);
+        std::string np = path + "/" + std::string(buff);
+        int fname_len = strlen(&buff[0]);
+        if (fname_len == 0  )
+        {
+            // std::cout << "Finish read dir.[" << np <<"] Break loop \n";
+            break;
+        }
 
-      if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
-      {
-         std::auto_ptr<XrdOssDF> dh(factory.GetOss()->newDir(factory.GetUsername().c_str()));   
-         std::auto_ptr<XrdOssDF> fh(factory.GetOss()->newFile(factory.GetUsername().c_str()));   
+        if (strncmp("..", &buff[0], 2) && strncmp(".", &buff[0], 1))
+        {
+            std::auto_ptr<XrdOssDF> dh(factory.GetOss()->newDir(factory.GetUsername().c_str()));   
+            std::auto_ptr<XrdOssDF> fh(factory.GetOss()->newFile(factory.GetUsername().c_str()));   
 
-         if (fname_len > InfoExtLen && strncmp(&buff[fname_len - InfoExtLen ], InfoExt , InfoExtLen) == 0)
-         {
-            fh->Open((np).c_str(),O_RDONLY, 0600, env);
-            CacheFileInfo cinfo;
-            time_t accessTime;
-            cinfo.Read(fh.get());
-            if (cinfo.getLatestAttachTime(accessTime, fh.get()))
+            if (fname_len > InfoExtLen && strncmp(&buff[fname_len - InfoExtLen ], InfoExt , InfoExtLen) == 0)
             {
-               aMsg(kDebug, "FillFileMapRecurse() checking %s accessTime %d ", buff, (int)accessTime);
-               fcmap[np] = accessTime;
+                int reso = fh->Open((np).c_str(),O_RDONLY, 0600, env);
+                if (reso >= 0) {
+                    CacheFileInfo cinfo;
+                    time_t accessTime;
+                    cinfo.Read(fh.get());
+                    if (cinfo.getLatestAttachTime(accessTime, fh.get()))
+                    {
+                        aMsg(kDebug, "FillFileMapRecurse() checking %s accessTime %d ", buff, (int)accessTime);
+                        fcmap[np] = accessTime;
+                    }
+                    else
+                    {
+                        aMsg(kDebug, "FillFileMapRecurse() checking %s accessTime %d fail ", buff);
+                    }
+                }
             }
-         }
-         else if ( dh->Opendir(np.c_str(), env)  >= 0 )
-         {
-            FillFileMapRecurse(dh.get(), np, fcmap);
-         }
-      }
-   }
+            else if ( dh->Opendir(np.c_str(), env)  >= 0 )
+            {
+                FillFileMapRecurse(dh.get(), np, fcmap);
+            }
+        }
+    }
 }
 
 
@@ -495,23 +501,25 @@ Factory::TempDirCleanup()
                 // loop over map and remove files with highest value of access time
                 for (fcmap_t::iterator i = fcmap.begin(); i != fcmap.end(); ++i)
                 {  
-                    std::string path = i->first;
-                    // remove info file
-                    if (m_output_fs->Stat(path.c_str(), &fstat) == XrdOssOK)
+                    std::string info_path = i->first;
+                    // remove data file
+                    std::string data_path = info_path.substr(0, info_path.size() - strlen(InfoExt));
+                    assert(m_output_fs->Stat(data_path.c_str(), &fstat) == XrdOssOK);
+                    if (m_output_fs->Stat(data_path.c_str(), &fstat) == XrdOssOK)
                     {
                         bytesToRemove -= fstat.st_size;
-                        m_output_fs->Unlink(path.c_str());
-                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", path.c_str(), fstat.st_size);
+                        m_output_fs->Unlink(data_path.c_str());
+                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", data_path.c_str(), fstat.st_size);
                     }
 
-                    // remove data file
-                    path = path.substr(0, path.size() - strlen(InfoExt));
-                    if (m_output_fs->Stat(path.c_str(), &fstat) == XrdOssOK)
+                    // remove info file
+                    if (m_output_fs->Stat(info_path.c_str(), &fstat) == XrdOssOK)
                     {
                         bytesToRemove -= fstat.st_size;
-                        m_output_fs->Unlink(path.c_str());
-                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", path.c_str(), fstat.st_size);
+                        m_output_fs->Unlink(info_path.c_str());
+                        aMsg(kInfo, "Factory::TempDirCleanup() removed %s size %lld ", info_path.c_str(), fstat.st_size);
                     }
+
                     if (bytesToRemove <= 0) 
                         break;
                 }
